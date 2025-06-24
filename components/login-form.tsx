@@ -13,15 +13,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 export function LoginForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
-    // Simulate login process
-    setTimeout(() => {
+    setError(null)
+    const form = e.currentTarget
+    const email = (form.elements.namedItem("email") as HTMLInputElement)?.value
+    const password = (form.elements.namedItem("password") as HTMLInputElement)?.value
+    if (!email || !password) {
+      setError("Email dan password wajib diisi")
+      setIsLoading(false)
+      return
+    }
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        setError(err.error || "Login gagal")
+        setIsLoading(false)
+        return
+      }
+      const data = await res.json()
+      localStorage.setItem("access_token", data.access_token)
+      localStorage.setItem("refresh_token", data.refresh_token)
       setIsLoading(false)
       router.push("/dashboard")
-    }, 1000)
+    } catch (e: any) {
+      setError(e.message || "Login gagal")
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -38,13 +64,14 @@ export function LoginForm() {
               <CardDescription>Masukkan kredensial Anda untuk mengakses akun</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {error && <div className="text-red-500 text-sm">{error}</div>}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="nama@email.com" required />
+                <Input id="email" name="email" type="email" placeholder="nama@email.com" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Kata Sandi</Label>
-                <Input id="password" type="password" required />
+                <Input id="password" name="password" type="password" required />
               </div>
             </CardContent>
             <CardFooter>
