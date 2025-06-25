@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -10,9 +10,59 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CalendarPlus, Clock, Users, Video } from "lucide-react"
 import { UpcomingScrums } from "@/components/upcoming-scrums"
+import { fetchWithAuth } from "@/lib/api"
 
 export default function ScrumSchedulePage() {
   const [date, setDate] = useState<Date | undefined>(new Date())
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [teams, setTeams] = useState<{ id: number; name: string }[]>([])
+  const [form, setForm] = useState({
+    title: "",
+    team_id: "",
+    scheduled_start: "",
+    scheduled_duration: "15",
+  })
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Ambil role dan tim dari localStorage (hasil login)
+    const profile = localStorage.getItem("user_profile")
+    if (profile) {
+      const user = JSON.parse(profile)
+      setUserRole(user.role)
+      setTeams(user.teams || [])
+    }
+  }, [])
+
+  const handleChange = (e: any) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
+
+  const handleSubmit = async (e: any) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      await fetchWithAuth("https://backend.xeroon.xyz/api/sessions/create", {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          team_id: Number(form.team_id),
+          scheduled_duration: Number(form.scheduled_duration),
+          scheduled_start: form.scheduled_start,
+        }),
+      })
+      setSuccess("Sesi berhasil dibuat!")
+      setForm({ title: "", team_id: "", scheduled_start: "", scheduled_duration: "15" })
+    } catch (e: any) {
+      setError(e.message || "Gagal membuat sesi")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -26,7 +76,6 @@ export default function ScrumSchedulePage() {
           <TabsTrigger value="upcoming">Sesi Mendatang</TabsTrigger>
           <TabsTrigger value="schedule">Jadwalkan Sesi Baru</TabsTrigger>
         </TabsList>
-
         <TabsContent value="upcoming">
           <Card>
             <CardHeader>
@@ -131,7 +180,6 @@ export default function ScrumSchedulePage() {
             </Card>
           </div>
         </TabsContent>
-
         <TabsContent value="schedule">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -140,96 +188,41 @@ export default function ScrumSchedulePage() {
                 <CardDescription>Buat sesi Daily Scrum baru</CardDescription>
               </CardHeader>
               <CardContent>
-                <form className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="team">Tim</Label>
-                    <Select>
-                      <SelectTrigger id="team">
-                        <SelectValue placeholder="Pilih tim" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="frontend">Frontend Team</SelectItem>
-                        <SelectItem value="backend">Backend Team</SelectItem>
-                        <SelectItem value="design">Design Team</SelectItem>
-                        <SelectItem value="qa">QA Team</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                {userRole === "facilitator" ? (
+                  <form className="space-y-4" onSubmit={handleSubmit}>
                     <div className="space-y-2">
-                      <Label htmlFor="start-time">Waktu Mulai</Label>
-                      <Input id="start-time" type="time" defaultValue="09:00" />
+                      <Label htmlFor="title">Judul Sesi</Label>
+                      <Input id="title" name="title" value={form.title} onChange={handleChange} required />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="duration">Durasi</Label>
-                      <Select defaultValue="15">
-                        <SelectTrigger id="duration">
-                          <SelectValue placeholder="Pilih durasi" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="10">10 menit</SelectItem>
-                          <SelectItem value="15">15 menit</SelectItem>
-                          <SelectItem value="20">20 menit</SelectItem>
-                          <SelectItem value="30">30 menit</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="team_id">Tim</Label>
+                      <select id="team_id" name="team_id" value={form.team_id} onChange={handleChange} required className="w-full border rounded px-2 py-1">
+                        <option value="">Pilih tim</option>
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.id}>{team.name}</option>
+                        ))}
+                      </select>
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="recurrence">Pengulangan</Label>
-                    <Select defaultValue="weekdays">
-                      <SelectTrigger id="recurrence">
-                        <SelectValue placeholder="Pilih pengulangan" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="once">Sekali saja</SelectItem>
-                        <SelectItem value="daily">Setiap hari</SelectItem>
-                        <SelectItem value="weekdays">Hari kerja</SelectItem>
-                        <SelectItem value="weekly">Mingguan</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="participants">Peserta</Label>
-                    <Select>
-                      <SelectTrigger id="participants">
-                        <SelectValue placeholder="Pilih peserta" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua anggota tim</SelectItem>
-                        <SelectItem value="developers">Hanya pengembang</SelectItem>
-                        <SelectItem value="custom">Pilihan kustom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notification">Notifikasi</Label>
-                    <Select defaultValue="15">
-                      <SelectTrigger id="notification">
-                        <SelectValue placeholder="Pilih waktu notifikasi" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5 menit sebelum</SelectItem>
-                        <SelectItem value="10">10 menit sebelum</SelectItem>
-                        <SelectItem value="15">15 menit sebelum</SelectItem>
-                        <SelectItem value="30">30 menit sebelum</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button className="w-full bg-teal-600 hover:bg-teal-700">
-                    <CalendarPlus className="mr-2 h-4 w-4" />
-                    Jadwalkan Sesi
-                  </Button>
-                </form>
+                    <div className="space-y-2">
+                      <Label htmlFor="scheduled_start">Waktu Mulai</Label>
+                      <Input id="scheduled_start" name="scheduled_start" type="datetime-local" value={form.scheduled_start} onChange={handleChange} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="scheduled_duration">Durasi (menit)</Label>
+                      <Input id="scheduled_duration" name="scheduled_duration" type="number" min="5" max="120" value={form.scheduled_duration} onChange={handleChange} required />
+                    </div>
+                    <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={loading}>
+                      <CalendarPlus className="mr-2 h-4 w-4" />
+                      {loading ? "Menyimpan..." : "Jadwalkan Sesi"}
+                    </Button>
+                    {success && <div className="text-green-600 mt-2">{success}</div>}
+                    {error && <div className="text-red-600 mt-2">{error}</div>}
+                  </form>
+                ) : (
+                  <div className="text-gray-500">Hanya fasilitator yang dapat membuat sesi baru.</div>
+                )}
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>Pilih Tanggal</CardTitle>
