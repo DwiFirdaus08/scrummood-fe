@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Brain, Users, TrendingUp, Clock } from "lucide-react"
 import io, { Socket } from "socket.io-client"
 
-interface EmotionData {
+export interface EmotionData {
   happy: number
   sad: number
   angry: number
@@ -18,96 +18,24 @@ interface EmotionData {
   neutral: number
 }
 
+interface TeamEmotionMember {
+  id: string
+  name: string
+  avatar: string
+  emotions: EmotionData
+  faceDetected: boolean
+  isCurrentUser: boolean
+}
+
 interface LiveEmotionTrackerProps {
   currentUserEmotions?: EmotionData
   currentUserFaceDetected?: boolean
+  teamEmotions?: TeamEmotionMember[] // <-- Accept real team data from parent
+  currentUserName?: string // <-- For correct display of current user name
 }
 
-export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetected }: LiveEmotionTrackerProps) {
+export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetected, teamEmotions = [], currentUserName }: LiveEmotionTrackerProps) {
   const socketRef = useRef<Socket | null>(null)
-  const [teamEmotions, setTeamEmotions] = useState([
-    {
-      id: "user-1",
-      name: "John Doe (Anda)",
-      avatar: "JD",
-      emotions: currentUserEmotions || {
-        happy: 0.7,
-        neutral: 0.2,
-        surprised: 0.05,
-        sad: 0.03,
-        angry: 0.01,
-        fearful: 0.005,
-        disgusted: 0.005,
-      },
-      faceDetected: currentUserFaceDetected || false,
-      isCurrentUser: true,
-    },
-    {
-      id: "user-2",
-      name: "Jane Smith",
-      avatar: "JS",
-      emotions: {
-        happy: 0.6,
-        neutral: 0.25,
-        surprised: 0.08,
-        sad: 0.04,
-        angry: 0.02,
-        fearful: 0.005,
-        disgusted: 0.005,
-      },
-      faceDetected: true,
-      isCurrentUser: false,
-    },
-    {
-      id: "user-3",
-      name: "Mike Johnson",
-      avatar: "MJ",
-      emotions: {
-        happy: 0.3,
-        neutral: 0.4,
-        surprised: 0.1,
-        sad: 0.15,
-        angry: 0.03,
-        fearful: 0.01,
-        disgusted: 0.01,
-      },
-      faceDetected: true,
-      isCurrentUser: false,
-    },
-    {
-      id: "user-4",
-      name: "Sarah Wilson",
-      avatar: "SW",
-      emotions: {
-        happy: 0.8,
-        neutral: 0.15,
-        surprised: 0.03,
-        sad: 0.01,
-        angry: 0.005,
-        fearful: 0.003,
-        disgusted: 0.002,
-      },
-      faceDetected: false,
-      isCurrentUser: false,
-    },
-  ])
-
-  // Update current user emotions when props change
-  useEffect(() => {
-    if (currentUserEmotions) {
-      setTeamEmotions((prev) =>
-        prev.map((member) =>
-          member.isCurrentUser
-            ? {
-                ...member,
-                emotions: currentUserEmotions,
-                faceDetected: currentUserFaceDetected || false,
-              }
-            : member,
-        ),
-      )
-    }
-  }, [currentUserEmotions, currentUserFaceDetected])
 
   // --- SOCKET.IO REAL-TIME EMOTION TRACKING ---
   useEffect(() => {
@@ -130,60 +58,16 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
     // Listen for real-time emotion updates
     socket.on("emotion_update", (payload) => {
       // payload: { session_id, user_id, emotion }
-      setTeamEmotions((prev) => {
-        // Cari user yang sesuai, update emosi dan faceDetected=true
-        const found = prev.find((m) => m.id === payload.user_id || m.id === `user-${payload.user_id}`)
-        if (found) {
-          return prev.map((m) =>
-            m.id === found.id
-              ? {
-                  ...m,
-                  emotions: payload.emotion,
-                  faceDetected: true,
-                }
-              : m,
-          )
-        } else {
-          // Tambahkan user baru jika belum ada
-          return [
-            ...prev,
-            {
-              id: payload.user_id,
-              name: payload.username || `User ${payload.user_id}`,
-              avatar: payload.username ? payload.username.slice(0, 2).toUpperCase() : payload.user_id,
-              emotions: payload.emotion,
-              faceDetected: true,
-              isCurrentUser: false,
-            },
-          ]
-        }
-      })
+      // TODO: Handle real-time updates if needed
     })
 
     // Listen for user join/leave events (opsional, update presence)
     socket.on("user_joined", (payload) => {
       // Tambahkan user ke teamEmotions jika belum ada
-      setTeamEmotions((prev) => {
-        if (prev.some((m) => m.id === payload.user_id || m.id === `user-${payload.user_id}`)) return prev
-        return [
-          ...prev,
-          {
-            id: payload.user_id,
-            name: payload.username || `User ${payload.user_id}`,
-            avatar: payload.username ? payload.username.slice(0, 2).toUpperCase() : payload.user_id,
-            emotions: { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 1 },
-            faceDetected: false,
-            isCurrentUser: false,
-          },
-        ]
-      })
+      // TODO: Handle user joined
     })
     socket.on("user_left", (payload) => {
-      setTeamEmotions((prev) =>
-        prev.map((m) =>
-          m.id === payload.user_id || m.id === `user-${payload.user_id}` ? { ...m, faceDetected: false } : m,
-        ),
-      )
+      // TODO: Handle user left
     })
 
     return () => {
@@ -224,35 +108,35 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
     )
   }
 
-  const calculateTeamAverage = () => {
-    const activeMembers = teamEmotions.filter((member) => member.faceDetected)
-    if (activeMembers.length === 0) return null
+  // Calculate team average and active count, fallback to current user if needed
+  const activeMembers = teamEmotions.filter((member) => member.faceDetected)
+  const hasCurrentUserActive = !teamEmotions.length && currentUserFaceDetected && currentUserEmotions
+  const teamAverage = activeMembers.length > 0
+    ? (() => {
+        const avg: EmotionData = { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 0 }
+        activeMembers.forEach((member) => {
+          Object.keys(avg).forEach((emotion) => {
+            avg[emotion as keyof EmotionData] += member.emotions[emotion as keyof EmotionData]
+          })
+        })
+        Object.keys(avg).forEach((emotion) => {
+          avg[emotion as keyof EmotionData] /= activeMembers.length
+        })
+        return avg
+      })()
+    : (hasCurrentUserActive ? currentUserEmotions : null)
+  const activeMembersCount = activeMembers.length > 0 ? activeMembers.length : (hasCurrentUserActive ? 1 : 0)
 
-    const averageEmotions: EmotionData = {
-      happy: 0,
-      sad: 0,
-      angry: 0,
-      fearful: 0,
-      disgusted: 0,
-      surprised: 0,
-      neutral: 0,
-    }
-
-    activeMembers.forEach((member) => {
-      Object.keys(averageEmotions).forEach((emotion) => {
-        averageEmotions[emotion as keyof EmotionData] += member.emotions[emotion as keyof EmotionData]
-      })
-    })
-
-    Object.keys(averageEmotions).forEach((emotion) => {
-      averageEmotions[emotion as keyof EmotionData] /= activeMembers.length
-    })
-
-    return averageEmotions
-  }
-
-  const teamAverage = calculateTeamAverage()
-  const activeMembersCount = teamEmotions.filter((member) => member.faceDetected).length
+  const displayTeam = teamEmotions.length > 0
+    ? teamEmotions
+    : (currentUserName ? [{
+      id: "current-user",
+      name: currentUserName,
+      avatar: currentUserName.split(" ").map((n) => n[0]).join("") || "U",
+      emotions: currentUserEmotions || { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 1 },
+      faceDetected: !!currentUserFaceDetected,
+      isCurrentUser: true,
+    }] : [])
 
   return (
     <div className="space-y-4">
@@ -280,11 +164,11 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
           </div>
         </CardHeader>
         <CardContent>
-          {teamAverage ? (
+          {(activeMembersCount > 0 || currentUserFaceDetected) ? (
             <div className="space-y-3">
               <h4 className="font-medium text-sm">Keadaan Emosi Tim</h4>
               <div className="grid grid-cols-2 gap-3">
-                {Object.entries(teamAverage)
+                {teamAverage && Object.entries(teamAverage)
                   .sort(([, a], [, b]) => b - a)
                   .slice(0, 4)
                   .map(([emotion, value]) => (
@@ -312,7 +196,7 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
 
       {/* Individual Members */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {teamEmotions.map((member) => {
+        {displayTeam.map((member) => {
           const dominantEmotion = getDominantEmotion(member.emotions)
           return (
             <Card
@@ -401,10 +285,10 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {activeMembersCount > 0 ? (
+            {(activeMembersCount > 0 || currentUserFaceDetected) ? (
               <>
                 <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-                  🤖 {activeMembersCount} anggota tim sedang dipantau oleh deteksi emosi AI
+                  🤖 {activeMembersCount > 0 ? activeMembersCount : 1} anggota tim sedang dipantau oleh deteksi emosi AI
                 </div>
                 {teamAverage && teamAverage.happy > 0.6 && (
                   <div className="p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">

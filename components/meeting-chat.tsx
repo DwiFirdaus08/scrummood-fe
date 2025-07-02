@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, Smile } from "lucide-react"
 
-type Message = {
+export type Message = {
   id: number
   sender: string
   senderInitials: string
@@ -20,94 +20,19 @@ type Message = {
   emotion?: "neutral" | "happy" | "stressed" | "sad" | "angry"
 }
 
-export function MeetingChat() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      sender: "Sistem",
-      senderInitials: "SYS",
-      avatar: "",
-      content: "Meeting dimulai. Selamat datang di Daily Scrum Tim Frontend!",
-      timestamp: "09.00",
-      isSystem: true,
-    },
-    {
-      id: 2,
-      sender: "John Doe",
-      senderInitials: "JD",
-      avatar: "",
-      content:
-        "Selamat pagi semuanya! Kemarin saya menyelesaikan desain ulang halaman login dan mulai mengerjakan komponen dashboard.",
-      timestamp: "09.01",
-      emotion: "happy",
-    },
-    {
-      id: 3,
-      sender: "Jane Smith",
-      senderInitials: "JS",
-      avatar: "",
-      content:
-        "Saya sedang mengerjakan integrasi API. Sudah ada kemajuan, tapi masih ada beberapa masalah dengan penanganan error.",
-      timestamp: "09.02",
-      emotion: "neutral",
-    },
-    {
-      id: 4,
-      sender: "Sistem",
-      senderInitials: "SYS",
-      avatar: "",
-      content: "Peringatan Emosi: Tingkat stres Mike meningkat saat membahas integrasi API.",
-      timestamp: "09.03",
-      isSystem: true,
-    },
-    {
-      id: 5,
-      sender: "Mike Johnson",
-      senderInitials: "MJ",
-      avatar: "",
-      content:
-        "Saya masih kesulitan dengan alur autentikasi. Dokumentasinya kurang jelas dan saya menemui beberapa kendala.",
-      timestamp: "09.03",
-      emotion: "stressed",
-    },
-    {
-      id: 6,
-      sender: "Sarah Williams",
-      senderInitials: "SW",
-      avatar: "",
-      content:
-        "Saya bisa bantu, Mike. Saya pernah mengerjakan hal serupa bulan lalu. Yuk pair programming setelah meeting.",
-      timestamp: "09.04",
-      emotion: "happy",
-    },
-    {
-      id: 7,
-      sender: "Sistem",
-      senderInitials: "SYS",
-      avatar: "",
-      content: "Saran: Pertimbangkan istirahat 5 menit untuk menurunkan tingkat stres tim.",
-      timestamp: "09.05",
-      isSystem: true,
-    },
-  ])
+interface MeetingChatProps {
+  messages: Message[]
+  onSend: (msg: string) => void
+  user: { id: string; name: string }
+}
 
+export function MeetingChat({ messages, onSend, user }: MeetingChatProps) {
   const [newMessage, setNewMessage] = useState("")
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault()
     if (!newMessage.trim()) return
-
-    const message: Message = {
-      id: messages.length + 1,
-      sender: "John Doe",
-      senderInitials: "JD",
-      avatar: "",
-      content: newMessage,
-      timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }),
-      emotion: "neutral",
-    }
-
-    setMessages([...messages, message])
+    onSend(newMessage)
     setNewMessage("")
   }
 

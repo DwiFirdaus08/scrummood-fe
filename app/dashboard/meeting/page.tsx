@@ -27,35 +27,21 @@ import {
   Brain,
   Waves,
 } from "lucide-react"
-import { LiveParticipants } from "@/components/live-participants"
-import { MeetingChat } from "@/components/meeting-chat"
+import { MeetingChat, Message } from "@/components/meeting-chat"
+import { LiveParticipants, Participant as BaseParticipant } from "@/components/live-participants"
+
+// Extend Participant type to include optional 'emotions' property
+type Participant = BaseParticipant & { emotions?: EmotionData }
+import { MeetingAgenda, AgendaItem } from "@/components/meeting-agenda"
+import { VoiceEmotionData } from "@/components/voice-emotion-detector"
+import { EmotionData } from "@/components/face-emotion-detector"
 import { LiveEmotionTracker } from "@/components/live-emotion-tracker"
-import { MeetingAgenda } from "@/components/meeting-agenda"
+import io from "socket.io-client"
+import { useRouter, useSearchParams } from "next/navigation"
 import { FaceEmotionDetector } from "@/components/face-emotion-detector"
 import { VoiceEmotionDetector } from "@/components/voice-emotion-detector"
 
-interface EmotionData {
-  happy: number
-  sad: number
-  angry: number
-  fearful: number
-  disgusted: number
-  surprised: number
-  neutral: number
-}
-
-interface VoiceEmotionData {
-  emotion: string
-  confidence: number
-  audioFeatures: {
-    pitch: number
-    energy: number
-    speakingRate: number
-    volume: number
-    spectralCentroid: number
-    zeroCrossingRate: number
-  }
-}
+type ChatMessage = Message // If you have a different structure, map it accordingly
 
 export default function MeetingPage() {
   const [isMicOn, setIsMicOn] = useState(false)
@@ -83,13 +69,36 @@ export default function MeetingPage() {
   // Combined emotions (face + voice)
   const [combinedEmotions, setCombinedEmotions] = useState<EmotionData | undefined>()
 
-  const videoRef = useRef<HTMLVideoElement>(null)
+  // Add real-time state
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [teamEmotions, setTeamEmotions] = useState<any>(undefined)
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
+  const [aiInsights, setAiInsights] = useState<any[]>([])
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  interface User {
+    id: string
+    name: string
+  }
+  const [user, setUser] = useState<User | null>(null)
+  // Ganti deklarasi socket agar bertipe benar
+  type SocketType = ReturnType<typeof io> | null
+  const [socket, setSocket] = useState<SocketType>(null)
+
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const joinToken = searchParams.get("token")
+
+  const videoRef = useRef<HTMLVideoElement>(null) as React.RefObject<HTMLVideoElement>
   const audioRef = useRef<HTMLAudioElement>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
   const audioStreamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+
+  // Screen sharing state
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
 
   // Format elapsed time as mm:ss
   const formatTime = useCallback((seconds: number) => {
@@ -100,6 +109,7 @@ export default function MeetingPage() {
 
   // Timer for meeting duration
   useEffect(() => {
+    // Only run this effect once on mount
     const timer = setInterval(() => {
       setElapsedTime((prev) => prev + 1)
     }, 1000)
@@ -217,16 +227,24 @@ export default function MeetingPage() {
 
   // Memoized callback functions to prevent unnecessary re-renders
   const handleFaceEmotionDetected = useCallback((emotions: EmotionData) => {
-    setCurrentFaceEmotions(emotions)
+    setCurrentFaceEmotions((prev) => {
+      // Only update if value actually changes (shallow compare)
+      if (!prev) return emotions
+      const keys = Object.keys(emotions) as (keyof EmotionData)[]
+      for (const key of keys) {
+        if (emotions[key] !== prev[key]) return emotions
+      }
+      return prev
+    })
   }, [])
 
   const handleFaceDetected = useCallback((detected: boolean) => {
-    setFaceDetected(detected)
+    setFaceDetected((prev) => (prev !== detected ? detected : prev))
   }, [])
 
+  // Handler for voice emotion detection
   const handleVoiceEmotionDetected = useCallback((voiceEmotion: VoiceEmotionData) => {
-    setCurrentVoiceEmotion(voiceEmotion)
-    console.log("Voice emotion detected:", voiceEmotion)
+    setCurrentVoiceEmotion((prev: VoiceEmotionData | undefined) => voiceEmotion)
   }, [])
 
   const handleSpeakingStateChanged = useCallback((speaking: boolean) => {
@@ -243,13 +261,16 @@ export default function MeetingPage() {
     const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
     const normalizedLevel = Math.min(100, (average / 128) * 100)
 
-    // Throttle updates to reduce re-renders
+    // Only update if changed significantly
     setAudioLevel((prevLevel) => {
       const diff = Math.abs(prevLevel - normalizedLevel)
       return diff > 3 ? Math.round(normalizedLevel) : prevLevel
     })
 
-    animationFrameRef.current = requestAnimationFrame(monitorAudioLevel)
+    // Only schedule next frame if analyserRef still exists
+    if (analyserRef.current) {
+      animationFrameRef.current = requestAnimationFrame(monitorAudioLevel)
+    }
   }, [])
 
   const startAudio = useCallback(async () => {
@@ -300,8 +321,10 @@ export default function MeetingPage() {
         analyserRef.current.fftSize = 256
         source.connect(analyserRef.current)
 
-        // Start monitoring after everything is set up
-        monitorAudioLevel()
+        // Start monitoring after everything is set up (only once)
+        if (!animationFrameRef.current) {
+          animationFrameRef.current = requestAnimationFrame(monitorAudioLevel)
+        }
         setAudioStatus("Microphone active - AI voice emotion detection enabled")
         setVoiceDetectionActive(true)
       } catch (audioContextError) {
@@ -495,15 +518,189 @@ export default function MeetingPage() {
   // Memoize audio stream to prevent unnecessary re-renders of VoiceEmotionDetector
   const memoizedAudioStream = useMemo(() => audioStreamRef.current, [isMicOn])
 
+  // TODO: Replace with actual session/user context or params
+  useEffect(() => {
+    // Example: get sessionId and user from query or context
+    setSessionId("demo-session-id")
+    setUser({ id: "user-1", name: "You" })
+  }, [])
+
+  // Connect to Socket.IO backend
+  useEffect(() => {
+    if (!joinToken) return
+    const s = io(process.env.NEXT_PUBLIC_SOCKET_IO_URL, {
+      query: { join_token: joinToken },
+      transports: ["websocket"],
+      withCredentials: true,
+    })
+    setSocket(s)
+    s.on("connect", () => {
+      // Optionally fetch session/user info
+      s.emit("get_session_info", { join_token: joinToken })
+    })
+    s.on("session_info", (data) => {
+      setSessionId(data.session_id)
+      setUser(data.user)
+      setParticipants(data.participants)
+      setChatMessages(data.chat)
+      setTeamEmotions(data.team_emotions)
+      setAiSuggestions(data.ai_suggestions)
+      setAiInsights(data.ai_insights)
+    })
+    s.on("participant_update", setParticipants)
+    s.on("chat_update", setChatMessages)
+    s.on("team_emotions_update", setTeamEmotions)
+    s.on("ai_suggestions_update", setAiSuggestions)
+    s.on("ai_insights_update", setAiInsights)
+    return () => {
+      s.disconnect()
+    }
+  }, [joinToken])
+
+  // Send local emotion to backend in real-time
+  useEffect(() => {
+    if (socket && combinedEmotions) {
+      socket.emit("emotion_update", { session_id: sessionId, user_id: user?.id, emotions: combinedEmotions })
+    }
+  }, [combinedEmotions, socket, sessionId, user])
+
+  // Send chat message
+  const sendChat = (msg: string) => {
+    if (socket && msg) {
+      socket.emit("chat_message", { session_id: sessionId, user_id: user?.id, message: msg })
+    }
+  }
+
+  // Request AI suggestion (Gamini API integration)
+  const requestAiSuggestion = () => {
+    if (socket) {
+      socket.emit("request_ai_suggestion", { session_id: sessionId })
+    }
+  }
+
+  // Handler for ending meeting
+  const endMeeting = async () => {
+    if (sessionId) {
+      try {
+        await fetch("/api/end_session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        await fetch("/api/trigger_gamini_summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        router.push("/dashboard/history")
+      } catch (e) {
+        alert("Gagal mengakhiri rapat. Silakan coba lagi.")
+      }
+    }
+  }
+
+  // Handler for settings button
+  const goToSettings = () => {
+    router.push("/dashboard/settings")
+  }
+
+  // Handler for screen sharing
+  const toggleScreenShare = async () => {
+    if (!screenStream) {
+      try {
+        const stream = await (navigator.mediaDevices as any).getDisplayMedia({ video: true })
+        setScreenStream(stream)
+        // Optionally, show the screen stream in the video element or send to backend/participants
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+        setIsScreenSharing(true)
+        stream.getVideoTracks()[0].onended = () => {
+          setScreenStream(null)
+          setIsScreenSharing(false)
+          if (videoRef.current) videoRef.current.srcObject = null
+        }
+      } catch (e) {
+        alert("Gagal membagikan layar.")
+      }
+    } else {
+      // Stop screen sharing
+      screenStream.getTracks().forEach((track) => track.stop())
+      setScreenStream(null)
+      setIsScreenSharing(false)
+      if (videoRef.current) videoRef.current.srcObject = null
+    }
+  }
+
+  // Format team emotions for sidebar
+  const formattedTeamEmotions = useMemo(() => {
+    if (!teamEmotions) return null
+    return Object.entries(teamEmotions).map(([key, value]) => ({
+      label: key,
+      value: typeof value === "number" ? Math.round(value * 100) : 0,
+    }))
+  }, [teamEmotions])
+
+  // Real-time state for agenda
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
+
+  // Map chatMessages to Message[] if needed
+  const mappedChatMessages: Message[] = chatMessages.map((msg: any, idx: number) => ({
+    id: msg.id ?? idx + 1,
+    sender: msg.user ?? msg.sender ?? "",
+    senderInitials: msg.senderInitials ?? (msg.user ? msg.user.split(" ").map((n: string) => n[0]).join("") : ""),
+    avatar: msg.avatar ?? "",
+    content: msg.message ?? msg.content ?? "",
+    timestamp: msg.timestamp ?? "",
+    isSystem: msg.isSystem ?? false,
+    emotion: msg.emotion,
+  }))
+
+  // Map participants to Participant[] if needed
+  const mappedParticipants: Participant[] = participants.map((p: any, idx: number) => ({
+    id: p.id ?? idx + 1,
+    name: p.name ?? "",
+    initials: p.initials ?? (p.name ? p.name.split(" ").map((n: string) => n[0]).join("") : ""),
+    avatar: p.avatar ?? "",
+    role: p.role ?? "Anggota Tim",
+    isSpeaking: p.isSpeaking ?? false,
+    isMuted: p.isMuted ?? false,
+    isVideoOn: p.isVideoOn ?? false,
+    isScreenSharing: p.isScreenSharing ?? false,
+    joinTime: p.joinTime ?? "",
+    dominantEmotion: p.dominantEmotion ?? "neutral",
+  }))
+
+  // Handler for toggling agenda item completion
+  const handleToggleAgendaComplete = (id: number) => {
+    setAgendaItems((prev: AgendaItem[]) => prev.map((item: AgendaItem) => (item.id === id ? { ...item, isCompleted: !item.isCompleted } : item)))
+  }
+
+  // Handler for adding agenda item
+  const handleAddAgenda = () => {
+    setAgendaItems((prev: AgendaItem[]) => [
+      ...prev,
+      {
+        id: prev.length + 1,
+        title: "Agenda Baru",
+        duration: 5,
+        isCompleted: false,
+        assignee: user?.name || "",
+      },
+    ])
+  }
+
   return (
     <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Live Meeting: Frontend Team Daily Scrum</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Live Meeting: {sessionId || "..."}</h1>
           <div className="flex items-center text-muted-foreground mt-1">
             <Clock className="mr-1 h-4 w-4" />
-            <span>Started at 9:00 AM • Duration: {formatTime(elapsedTime)}</span>
+            <span>Duration: {formatTime(elapsedTime)}</span>
             <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 hover:bg-green-100">
               Live
             </Badge>
@@ -528,11 +725,11 @@ export default function MeetingPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={goToSettings}>
             <Settings className="mr-2 h-4 w-4" />
             Pengaturan
           </Button>
-          <Button variant="destructive" size="sm">
+          <Button variant="destructive" size="sm" onClick={endMeeting}>
             <X className="mr-2 h-4 w-4" />
             Akhiri Rapat
           </Button>
@@ -680,12 +877,12 @@ export default function MeetingPage() {
                 )}
 
                 {/* Show placeholder when camera is off */}
-                {!isCameraOn && (
+                {!isCameraOn && user && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white space-y-4">
                     <Avatar className="h-24 w-24">
-                      <AvatarFallback className="text-4xl">JD</AvatarFallback>
+                      <AvatarFallback className="text-4xl">{user.name?.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
                     </Avatar>
-                    <span className="text-xl">John Doe (You)</span>
+                    <span className="text-xl">{user.name} (You)</span>
 
                     {isMicOn && (
                       <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-2 rounded-full">
@@ -726,41 +923,23 @@ export default function MeetingPage() {
                   </div>
                 )}
 
-                {/* Participant thumbnails */}
-                <div className="absolute top-4 right-4 flex flex-col gap-2 max-w-[200px]">
-                  <div className="w-32 h-20 bg-gray-800 rounded overflow-hidden border-2 border-white relative">
-                    <div className="w-full h-full flex items-center justify-center bg-gray-700">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">JS</AvatarFallback>
-                      </Avatar>
-                    </div>
-                    <div className="absolute bottom-1 left-1 text-white text-xs bg-black bg-opacity-70 px-1 rounded">
-                      Jane S.
-                    </div>
+                {/* Participant thumbnails (real-time, no dummy) */}
+                {participants && participants.length > 0 && (
+                  <div className="absolute top-4 right-4 flex flex-col gap-2 max-w-[200px]">
+                    {participants.map((p) => (
+                      <div key={p.id} className="w-32 h-20 bg-gray-800 rounded overflow-hidden border-2 border-white relative">
+                        <div className="w-full h-full flex items-center justify-center bg-gray-700">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">{p.name?.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <div className="absolute bottom-1 left-1 text-white text-xs bg-black bg-opacity-70 px-1 rounded">
+                          {p.name} {user && p.id === user.id ? "(You)" : ""}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="w-32 h-20 bg-gray-800 rounded overflow-hidden border-2 border-white relative">
-                    <div className="w-full h-full flex items-center justify-center bg-gray-700">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">MJ</AvatarFallback>
-                      </Avatar>
-                    </div>
-                    <div className="absolute bottom-1 left-1 text-white text-xs bg-black bg-opacity-70 px-1 rounded">
-                      Mike J.
-                    </div>
-                  </div>
-
-                  <div className="w-32 h-20 bg-gray-800 rounded overflow-hidden border-2 border-white relative">
-                    <div className="w-full h-full flex items-center justify-center bg-gray-700">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">SW</AvatarFallback>
-                      </Avatar>
-                    </div>
-                    <div className="absolute bottom-1 left-1 text-white text-xs bg-black bg-opacity-70 px-1 rounded">
-                      Sarah W.
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 {/* Meeting controls */}
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
@@ -815,7 +994,7 @@ export default function MeetingPage() {
                       variant="ghost"
                       size="icon"
                       className={`rounded-full ${isScreenSharing ? "bg-green-500 text-white hover:bg-green-600" : "text-white hover:bg-white/20"}`}
-                      onClick={() => setIsScreenSharing(!isScreenSharing)}
+                      onClick={toggleScreenShare}
                     >
                       <ScreenShare className="h-5 w-5" />
                     </Button>
@@ -860,19 +1039,38 @@ export default function MeetingPage() {
               <LiveEmotionTracker
                 currentUserEmotions={combinedEmotions}
                 currentUserFaceDetected={faceDetected || voiceDetectionActive}
+                teamEmotions={participants.map((p) => ({
+                  id: p.id?.toString() ?? "",
+                  name: p.name,
+                  avatar: p.initials ?? (p.name ? p.name.split(" ").map((n) => n[0]).join("") : "U"),
+                  emotions: p.emotions ?? (p.id === user?.id ? combinedEmotions || { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 1 } : { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 1 }),
+                  faceDetected: p.id === user?.id ? !!(faceDetected || voiceDetectionActive) : false,
+                  isCurrentUser: p.id === user?.id,
+                }) )}
+                currentUserName={user?.name}
               />
             </TabsContent>
 
             <TabsContent value="chat" className="mt-4">
-              <MeetingChat />
+              {user && (
+                <MeetingChat
+                  messages={mappedChatMessages}
+                  onSend={sendChat}
+                  user={user}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="participants" className="mt-4">
-              <LiveParticipants />
+              <LiveParticipants participants={mappedParticipants} />
             </TabsContent>
 
             <TabsContent value="agenda" className="mt-4">
-              <MeetingAgenda />
+              <MeetingAgenda
+                agendaItems={agendaItems}
+                onToggleComplete={handleToggleAgendaComplete}
+                onAddAgenda={handleAddAgenda}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -920,82 +1118,71 @@ export default function MeetingPage() {
               <CardDescription className="text-sm">Real-time emotional state</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {[
-                { label: "Happy", value: 45, color: "bg-green-500" },
-                { label: "Neutral", value: 30, color: "bg-blue-500" },
-                { label: "Stressed", value: 15, color: "bg-yellow-500" },
-                { label: "Sad", value: 5, color: "bg-gray-500" },
-                { label: "Angry", value: 5, color: "bg-red-500" },
-              ].map((emotion) => (
-                <div key={emotion.label} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{emotion.label}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-12 bg-gray-200 rounded-full h-2">
-                      <div className={`${emotion.color} h-2 rounded-full`} style={{ width: `${emotion.value}%` }}></div>
-                    </div>
-                    <span className="text-xs w-8 text-right">{emotion.value}%</span>
-                  </div>
-                </div>
-              ))}
+              {teamEmotions
+                ? Object.entries(teamEmotions).map(([label, value]) => {
+                    const percent = typeof value === "number" ? Math.round(value * 100) : 0;
+                    return (
+                      <div key={label} className="flex items-center justify-between">
+                        <span className="text-sm font-medium capitalize">{label}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-12 bg-gray-200 rounded-full h-2">
+                            <div className={`bg-blue-500 h-2 rounded-full`} style={{ width: `${percent}%` }}></div>
+                          </div>
+                          <span className="text-xs w-8 text-right">{percent}%</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                : <div className="text-xs text-gray-400">No team emotion data yet.</div>}
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">AI Insights</CardTitle>
               <CardDescription className="text-sm">Based on multi-modal analysis</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-xs text-green-700">
-                  Team mood is generally positive. Good time to discuss challenging topics.
-                </p>
-              </div>
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-xs text-yellow-700">
-                  Mike shows signs of stress when discussing the API integration.
-                </p>
-              </div>
+              {aiInsights.length > 0 ? aiInsights.map((insight, idx) => (
+                <div key={idx} className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-xs text-green-700">{insight}</p>
+                </div>
+              )) : <div className="text-xs text-gray-400">No AI insights yet.</div>}
               {(faceDetected || voiceDetectionActive) && combinedEmotions && (
                 <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-xs text-purple-700">
-                    🤖 Your combined emotion:{" "}
+                    🤖 Your combined emotion: {
+                      (Object.keys(combinedEmotions) as (keyof EmotionData)[])
+                        .reduce((maxKey, key) => combinedEmotions[key] > combinedEmotions[maxKey] ? key : maxKey, Object.keys(combinedEmotions)[0] as keyof EmotionData)
+                    } (
                     {
-                      Object.entries(combinedEmotions).reduce((a, b) =>
-                        combinedEmotions[a[0] as keyof EmotionData] > combinedEmotions[b[0] as keyof EmotionData]
-                          ? a
-                          : b,
-                      )[0]
-                    }{" "}
-                    (
-                    {Math.round(
-                      Object.entries(combinedEmotions).reduce((a, b) =>
-                        combinedEmotions[a[0] as keyof EmotionData] > combinedEmotions[b[0] as keyof EmotionData]
-                          ? a
-                          : b,
-                      )[1] * 100,
-                    )}
-                    %)
+                      Math.round(
+                        combinedEmotions[
+                          (Object.keys(combinedEmotions) as (keyof EmotionData)[])
+                            .reduce((maxKey, key) => combinedEmotions[key] > combinedEmotions[maxKey] ? key : maxKey, Object.keys(combinedEmotions)[0] as keyof EmotionData)
+                        ] * 100
+                      )
+                    }%)
                   </p>
                 </div>
               )}
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Suggested Actions</CardTitle>
               <CardDescription className="text-sm">Improve team dynamics</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 max-h-48 overflow-y-auto">
-              {["Take a 2-minute break", "Check in with Mike about API issues", "Acknowledge team progress"].map(
-                (action, index) => (
-                  <Button key={index} variant="outline" size="sm" className="w-full justify-start text-xs h-8">
-                    <ChevronRight className="mr-2 h-3 w-3" />
-                    {action}
-                  </Button>
-                ),
-              )}
+              {aiSuggestions.length > 0 ? aiSuggestions.map((action, index) => (
+                <Button key={index} variant="outline" size="sm" className="w-full justify-start text-xs h-8">
+                  <ChevronRight className="mr-2 h-3 w-3" />
+                  {action}
+                </Button>
+              )) : <div className="text-xs text-gray-400">No suggestions yet.</div>}
+              <Button onClick={requestAiSuggestion} size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white">
+                <Brain className="mr-2 h-4 w-4" />
+                Request AI Suggestion
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -1003,3 +1190,4 @@ export default function MeetingPage() {
     </div>
   )
 }
+// END

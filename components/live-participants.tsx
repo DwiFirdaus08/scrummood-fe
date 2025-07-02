@@ -4,9 +4,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Mic, MicOff, Video, VideoOff, MoreHorizontal } from "lucide-react"
+import type React from "react"
 
-type Participant = {
-  id: number
+export type Participant = {
+  id: number | string
   name: string
   initials: string
   avatar: string
@@ -19,62 +20,11 @@ type Participant = {
   dominantEmotion: "happy" | "neutral" | "stressed" | "sad" | "angry"
 }
 
-const participants: Participant[] = [
-  {
-    id: 1,
-    name: "Budi Santoso (Anda)",
-    initials: "BS",
-    avatar: "",
-    role: "Anggota Tim",
-    isSpeaking: true,
-    isMuted: false,
-    isVideoOn: true,
-    isScreenSharing: false,
-    joinTime: "09.00",
-    dominantEmotion: "happy",
-  },
-  {
-    id: 2,
-    name: "Siti Aminah",
-    initials: "SA",
-    avatar: "",
-    role: "Ketua Tim",
-    isSpeaking: false,
-    isMuted: false,
-    isVideoOn: true,
-    isScreenSharing: false,
-    joinTime: "08.58",
-    dominantEmotion: "neutral",
-  },
-  {
-    id: 3,
-    name: "Andi Wijaya",
-    initials: "AW",
-    avatar: "",
-    role: "Pengembang",
-    isSpeaking: false,
-    isMuted: false,
-    isVideoOn: true,
-    isScreenSharing: false,
-    joinTime: "09.01",
-    dominantEmotion: "stressed",
-  },
-  {
-    id: 4,
-    name: "Rina Dewi",
-    initials: "RD",
-    avatar: "",
-    role: "Desainer",
-    isSpeaking: false,
-    isMuted: true,
-    isVideoOn: false,
-    isScreenSharing: false,
-    joinTime: "09.02",
-    dominantEmotion: "happy",
-  },
-]
+interface LiveParticipantsProps {
+  participants: Participant[]
+}
 
-export function LiveParticipants() {
+export function LiveParticipants({ participants }: LiveParticipantsProps) {
   const getEmotionEmoji = (emotion: Participant["dominantEmotion"]) => {
     switch (emotion) {
       case "happy":
@@ -123,7 +73,7 @@ export function LiveParticipants() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <div className="text-sm font-medium">4 Peserta</div>
+        <div className="text-sm font-medium">{participants.length} Peserta</div>
         <Button size="sm" variant="outline">
           Undang
         </Button>

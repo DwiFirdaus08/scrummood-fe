@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import React, { useRef, useState, useEffect } from "react"
 
-interface VoiceEmotionData {
+export interface VoiceEmotionData {
   emotion: string
   confidence: number
   audioFeatures: {

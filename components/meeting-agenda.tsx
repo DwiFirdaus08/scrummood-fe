@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { Clock, Plus } from "lucide-react"
 
-type AgendaItem = {
+export type AgendaItem = {
   id: number
   title: string
   duration: number // in minutes
@@ -15,50 +15,16 @@ type AgendaItem = {
   notes?: string
 }
 
-export function MeetingAgenda() {
-  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>(
-    [
-      {
-        id: 1,
-        title: "Apa yang kamu capai kemarin?",
-        duration: 5,
-        isCompleted: true,
-        assignee: "Semua Anggota Tim",
-      },
-      {
-        id: 2,
-        title: "Apa yang akan kamu kerjakan hari ini?",
-        duration: 5,
-        isCompleted: false,
-        assignee: "Semua Anggota Tim",
-        notes: "Fokus pada hambatan dan ketergantungan",
-      },
-      {
-        id: 3,
-        title: "Ada hambatan atau kendala?",
-        duration: 3,
-        isCompleted: false,
-        assignee: "Semua Anggota Tim",
-      },
-      {
-        id: 4,
-        title: "Diskusi Integrasi API",
-        duration: 2,
-        isCompleted: false,
-        assignee: "Mike Johnson",
-        notes: "Diskusi singkat tentang masalah autentikasi",
-      },
-    ]
-  )
+interface MeetingAgendaProps {
+  agendaItems: AgendaItem[]
+  onToggleComplete: (id: number) => void
+  onAddAgenda?: () => void
+}
 
-  const toggleItemCompletion = (id: number) => {
-    setAgendaItems((prev) => prev.map((item) => (item.id === id ? { ...item, isCompleted: !item.isCompleted } : item)))
-  }
-
+export function MeetingAgenda({ agendaItems, onToggleComplete, onAddAgenda }: MeetingAgendaProps) {
   const totalDuration = agendaItems.reduce((sum, item) => sum + item.duration, 0)
   const completedDuration = agendaItems.filter((item) => item.isCompleted).reduce((sum, item) => sum + item.duration, 0)
-
-  const progressPercentage = Math.round((completedDuration / totalDuration) * 100)
+  const progressPercentage = totalDuration > 0 ? Math.round((completedDuration / totalDuration) * 100) : 0
 
   return (
     <div className="space-y-4">
@@ -70,17 +36,15 @@ export function MeetingAgenda() {
             <span>Total Durasi: {totalDuration} menit</span>
           </div>
         </div>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={onAddAgenda}>
           <Plus className="mr-1 h-4 w-4" />
           Tambah Agenda
         </Button>
       </div>
-
       <div className="flex items-center space-x-4">
         <Progress value={progressPercentage} className="flex-1" />
         <span className="text-sm font-medium">{progressPercentage}%</span>
       </div>
-
       <div className="space-y-3">
         {agendaItems.map((item) => (
           <div
@@ -93,7 +57,7 @@ export function MeetingAgenda() {
               <Checkbox
                 id={`item-${item.id}`}
                 checked={item.isCompleted}
-                onCheckedChange={() => toggleItemCompletion(item.id)}
+                onCheckedChange={() => onToggleComplete(item.id)}
                 className="mt-1"
               />
               <div className="ml-3 flex-1">

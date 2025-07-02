@@ -3,7 +3,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
-interface EmotionData {
+export interface EmotionData {
   happy: number;
   sad: number;
   angry: number;
