@@ -236,7 +236,16 @@ export default function MeetingPage() {
       }
       return prev
     })
-  }, [])
+    // Emit to backend for storage (face)
+    if (socket && sessionId && user?.id) {
+      socket.emit("emotion_update", {
+        session_id: sessionId,
+        user_id: user.id,
+        emotions,
+        source: "face"
+      })
+    }
+  }, [socket, sessionId, user])
 
   const handleFaceDetected = useCallback((detected: boolean) => {
     setFaceDetected((prev) => (prev !== detected ? detected : prev))
@@ -245,11 +254,37 @@ export default function MeetingPage() {
   // Handler for voice emotion detection
   const handleVoiceEmotionDetected = useCallback((voiceEmotion: VoiceEmotionData) => {
     setCurrentVoiceEmotion((prev: VoiceEmotionData | undefined) => voiceEmotion)
-  }, [])
-
-  const handleSpeakingStateChanged = useCallback((speaking: boolean) => {
-    setIsSpeaking(speaking)
-  }, [])
+    // Convert to EmotionData format for backend
+    if (socket && sessionId && user?.id && voiceEmotion) {
+      const emotionMapping = {
+        happy: "happy",
+        excited: "happy",
+        calm: "neutral",
+        neutral: "neutral",
+        stressed: "fearful",
+        angry: "angry",
+        sad: "sad",
+        frustrated: "angry",
+      } as const
+      const mapped = emotionMapping[voiceEmotion.emotion as keyof typeof emotionMapping] || "neutral"
+      const emotions: EmotionData = {
+        happy: 0,
+        sad: 0,
+        angry: 0,
+        fearful: 0,
+        disgusted: 0,
+        surprised: 0,
+        neutral: 0,
+      }
+      emotions[mapped] = voiceEmotion.confidence
+      socket.emit("emotion_update", {
+        session_id: sessionId,
+        user_id: user.id,
+        emotions,
+        source: "voice"
+      })
+    }
+  }, [socket, sessionId, user])
 
   // Audio level monitoring with useCallback and throttling
   const monitorAudioLevel = useCallback(() => {
@@ -518,6 +553,11 @@ export default function MeetingPage() {
   // Memoize audio stream to prevent unnecessary re-renders of VoiceEmotionDetector
   const memoizedAudioStream = useMemo(() => audioStreamRef.current, [isMicOn])
 
+  // Handler for speaking state changes from VoiceEmotionDetector
+  const handleSpeakingStateChanged = useCallback((speaking: boolean) => {
+    setIsSpeaking(speaking)
+  }, [])
+
   // TODO: Replace with actual session/user context or params
   useEffect(() => {
     // Example: get sessionId and user from query or context
@@ -564,6 +604,20 @@ export default function MeetingPage() {
     }
   }, [combinedEmotions, socket, sessionId, user])
 
+  // --- Real-time emotion broadcast to dashboard (for live chart sync) ---
+  useEffect(() => {
+    if (!socket || !combinedEmotions) return
+    // Emit to a global dashboard room/channel for real-time chart
+    socket.emit("emotion_update", {
+      session_id: sessionId,
+      user_id: user?.id,
+      emotions: combinedEmotions,
+      // Optionally add timestamp for chart
+      timestamp: Date.now(),
+      source: "meeting"
+    })
+  }, [combinedEmotions, socket, sessionId, user])
+
   // Send chat message
   const sendChat = (msg: string) => {
     if (socket && msg) {
@@ -594,6 +648,20 @@ export default function MeetingPage() {
           credentials: "include",
           body: JSON.stringify({ session_id: sessionId }),
         })
+        // Fetch latest session summary and update AI suggestions/insights
+        const summaryRes = await fetch(`/api/sessions/session_summary/${sessionId}`, {
+          credentials: "include"
+        })
+        if (summaryRes.ok) {
+          const summaryData = await summaryRes.json()
+          setAiSuggestions(Array.isArray(summaryData.ai_suggestions) ? summaryData.ai_suggestions : [])
+          // Try to get insights from summaryData.session.ai_insights or summaryData.ai_insights
+          setAiInsights(
+            (summaryData.session && summaryData.session.ai_insights) ||
+            summaryData.ai_insights ||
+            []
+          )
+        }
         router.push("/dashboard/history")
       } catch (e) {
         alert("Gagal mengakhiri rapat. Silakan coba lagi.")
@@ -1176,7 +1244,7 @@ export default function MeetingPage() {
               {aiSuggestions.length > 0 ? aiSuggestions.map((action, index) => (
                 <Button key={index} variant="outline" size="sm" className="w-full justify-start text-xs h-8">
                   <ChevronRight className="mr-2 h-3 w-3" />
-                  {action}
+                  {action.title || action.description || (typeof action === 'string' ? action : JSON.stringify(action))}
                 </Button>
               )) : <div className="text-xs text-gray-400">No suggestions yet.</div>}
               <Button onClick={requestAiSuggestion} size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white">
