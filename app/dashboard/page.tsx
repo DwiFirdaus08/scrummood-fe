@@ -1,3 +1,5 @@
+'use client'
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { EmotionChart } from "@/components/emotion-chart"
@@ -8,6 +10,45 @@ import { Clock, Video, TrendingUp, Users, Calendar, Lightbulb } from "lucide-rea
 import Link from "next/link"
 
 export default function Dashboard() {
+  const [history, setHistory] = useState<any[]>([])
+  const [upcoming, setUpcoming] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [historyRes, upcomingRes] = await Promise.all([
+          fetch("/api/session_history", { credentials: "include" }).then(r => r.json()),
+          fetch("/api/sessions/today", { credentials: "include" }).then(r => r.json())
+        ])
+        setHistory(historyRes.sessions || [])
+        setUpcoming(upcomingRes.sessions || [])
+      } catch (e) {
+        // handle error
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  if (loading) return <div className="p-6">Memuat data dashboard...</div>
+
+  // Sesi aktif: ambil sesi yang statusnya aktif (belum selesai)
+  const activeSession = upcoming.find((s) => s.status === "ACTIVE" || s.status === "IN_PROGRESS")
+  // Mood tim: dari sesi terakhir yang selesai
+  const lastSession = history[0]
+  const teamMood = lastSession?.emotion_summary
+  // Saran terbaru: dari sesi terakhir
+  const aiSuggestions = lastSession?.ai_suggestions || []
+  // Tren emosi: agregasi 7 sesi terakhir
+  const emotionTrend = history.slice(0, 7).map((s) => ({
+    date: s.scheduled_start,
+    ...s.emotion_summary
+  }))
+  // Sesi mendatang: upcoming yang belum mulai
+  const nextSessions = upcoming.filter((s) => s.status !== "COMPLETED")
+
   return (
     <div className="space-y-6 p-6">
       {/* Header Section */}
@@ -24,9 +65,11 @@ export default function Dashboard() {
               <Video className="mr-2 h-4 w-4" /> Gabung Meeting Aktif
             </Button>
           </Link>
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Clock className="mr-2 h-4 w-4" /> Lihat Sesi Sebelumnya
-          </Button>
+          <Link href="/dashboard/history">
+            <Button variant="outline" className="w-full sm:w-auto">
+              <Clock className="mr-2 h-4 w-4" /> Lihat Sesi Sebelumnya
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -35,11 +78,11 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Sesi Aktif</CardTitle>
-            <div className="h-4 w-4 rounded-full bg-green-500"></div>
+            <div className={`h-4 w-4 rounded-full ${activeSession ? "bg-green-500" : "bg-gray-300"}`}></div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1</div>
-            <p className="text-xs text-muted-foreground">Daily Scrum Tim Frontend</p>
+            <div className="text-2xl font-bold">{activeSession ? 1 : 0}</div>
+            <p className="text-xs text-muted-foreground">{activeSession ? activeSession.title : "Tidak ada sesi aktif"}</p>
           </CardContent>
         </Card>
 
@@ -49,8 +92,8 @@ export default function Dashboard() {
             <TrendingUp className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">Netral</div>
-            <p className="text-xs text-muted-foreground">+2% dari kemarin</p>
+            <div className="text-2xl font-bold">{teamMood ? Object.entries(teamMood).sort(([,a],[,b])=>(b as number)-(a as number))[0][0] : "-"}</div>
+            <p className="text-xs text-muted-foreground">{teamMood ? `Dominan: ${Object.entries(teamMood).sort(([,a],[,b])=>(b as number)-(a as number))[0][0]}` : "Belum ada data"}</p>
           </CardContent>
         </Card>
 
@@ -60,8 +103,8 @@ export default function Dashboard() {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
-            <p className="text-xs text-muted-foreground">Berikutnya: Tim Backend (10:00 AM)</p>
+            <div className="text-2xl font-bold">{nextSessions.length}</div>
+            <p className="text-xs text-muted-foreground">{nextSessions[0] ? `Berikutnya: ${nextSessions[0].title} (${new Date(nextSessions[0].scheduled_start).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})})` : "Tidak ada scrum mendatang"}</p>
           </CardContent>
         </Card>
 
@@ -71,8 +114,8 @@ export default function Dashboard() {
             <Lightbulb className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
-            <p className="text-xs text-muted-foreground">2 baru sejak kemarin</p>
+            <div className="text-2xl font-bold">{aiSuggestions.length}</div>
+            <p className="text-xs text-muted-foreground">{aiSuggestions.length ? `${aiSuggestions.length} saran dari AI` : "Belum ada saran"}</p>
           </CardContent>
         </Card>
       </div>
@@ -85,7 +128,7 @@ export default function Dashboard() {
             <CardDescription>Pola emosional selama 7 hari terakhir</CardDescription>
           </CardHeader>
           <CardContent>
-            <EmotionChart />
+            <EmotionChart data={emotionTrend} />
           </CardContent>
         </Card>
 
@@ -95,7 +138,7 @@ export default function Dashboard() {
             <CardDescription>Keadaan emosional waktu nyata</CardDescription>
           </CardHeader>
           <CardContent>
-            <TeamMoodSummary />
+            <TeamMoodSummary data={lastSession?.team_members || []} summary={teamMood} />
           </CardContent>
         </Card>
       </div>
@@ -111,7 +154,7 @@ export default function Dashboard() {
             <CardDescription>Rekomendasi AI untuk tim</CardDescription>
           </CardHeader>
           <CardContent className="max-h-80 overflow-y-auto">
-            <RecentSuggestions />
+            <RecentSuggestions suggestions={aiSuggestions} />
           </CardContent>
         </Card>
 
@@ -124,7 +167,7 @@ export default function Dashboard() {
             <CardDescription>Scrum Harian Anda yang dijadwalkan</CardDescription>
           </CardHeader>
           <CardContent className="max-h-80 overflow-y-auto">
-            <UpcomingScrums />
+            <UpcomingScrums sessions={nextSessions} />
           </CardContent>
         </Card>
 
@@ -137,32 +180,8 @@ export default function Dashboard() {
             <CardDescription>Rekomendasi yang dipersonalisasi untuk Anda</CardDescription>
           </CardHeader>
           <CardContent className="max-h-80 overflow-y-auto">
-            <div className="space-y-3">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-medium text-sm text-blue-800">Latihan Mendengarkan Aktif</h4>
-                <p className="text-xs text-blue-700 mt-1">Cobalah untuk lebih banyak mengajukan pertanyaan klarifikasi selama diskusi</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-blue-600">Dari rapat</span>
-                  <Button size="sm" variant="outline" className="text-xs h-6">
-                    Tandai Selesai
-                  </Button>
-                </div>
-              </div>
-
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                <h4 className="font-medium text-sm text-green-800">Pemecahan Masalah yang Hebat</h4>
-                <p className="text-xs text-green-700 mt-1">Pendekatan analitis Anda sangat baik hari ini</p>
-                <span className="text-xs text-green-600">Dari rapat</span>
-              </div>
-
-              <div className="text-center pt-2">
-                <Link href="/dashboard/personal-insights">
-                  <Button variant="outline" size="sm" className="text-xs">
-                    Lihat Semua Wawasan
-                  </Button>
-                </Link>
-              </div>
-            </div>
+            {/* TODO: Ambil dan render wawasan personal dari backend jika ada */}
+            <div className="text-xs text-muted-foreground">Belum ada wawasan personal.</div>
           </CardContent>
         </Card>
       </div>

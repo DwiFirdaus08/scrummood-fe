@@ -1,48 +1,38 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Users, Video } from "lucide-react";
+import { Clock, Users, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api";
 import io from "socket.io-client";
 import { useRouter } from "next/navigation";
 
 type ScrumSession = {
-  id: number;
+  id: number | string;
   title: string;
-  team_id: number;
-  facilitator_id: number;
+  team_id?: number;
+  facilitator_id?: number;
   scheduled_start: string;
-  scheduled_duration: number;
-  status: string;
+  scheduled_duration?: number;
+  status?: string;
+  join_token?: string;
 };
 
-export function UpcomingScrums() {
-  const [sessions, setSessions] = useState<ScrumSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type UpcomingScrumsProps = {
+  sessions: ScrumSession[];
+};
+
+export function UpcomingScrums({ sessions }: UpcomingScrumsProps) {
   const router = useRouter();
-
-  useEffect(() => {
-    fetchWithAuth("http://127.0.0.1:5000/api/sessions/today")
-      .then((res) => setSessions(res.sessions))
-      .catch((e) => setError("Gagal memuat sesi"))
-      .finally(() => setLoading(false));
-  }, []);
-
   const handleJoin = (session: ScrumSession) => {
-    // Redirect ke halaman join dengan join_token
-    if ((session as any).join_token) {
-      router.push(`/join/${(session as any).join_token}`);
+    if (session.join_token) {
+      router.push(`/join/${session.join_token}`);
     } else {
       alert("Link join tidak tersedia untuk sesi ini.");
     }
   };
-
-  if (loading) return <div>Memuat sesi...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
-  if (!sessions.length) return <div>Tidak ada sesi scrum hari ini.</div>;
-
+  if (!sessions || sessions.length === 0)
+    return <div>Tidak ada sesi scrum hari ini.</div>;
   return (
     <div className="space-y-4">
       {sessions.map((session) => (

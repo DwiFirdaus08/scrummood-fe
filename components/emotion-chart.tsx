@@ -1,21 +1,34 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import React, { useEffect, useRef } from "react"
 
-export function EmotionChart() {
+type EmotionTrend = {
+  date: string
+  happy?: number
+  neutral?: number
+  stressed?: number
+  sad?: number
+  angry?: number
+}
+
+type EmotionChartProps = {
+  data: EmotionTrend[]
+}
+
+export function EmotionChart({ data }: EmotionChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d")
-    if (!ctx) return
+    if (!ctx || !data || data.length === 0) return
 
-    // Mock data for the chart
-    const labels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
-    const happyData = [65, 70, 62, 80, 75, 68, 72]
-    const neutralData = [45, 52, 48, 40, 42, 50, 55]
-    const stressData = [30, 25, 40, 20, 35, 30, 25]
-    const sadData = [15, 20, 25, 10, 15, 12, 18]
-    const angryData = [5, 10, 15, 5, 8, 7, 10]
+    // Build labels and emotion arrays from data
+    const labels = data.map((d) => new Date(d.date).toLocaleDateString("id-ID", { weekday: "short" }))
+    const happyData = data.map((d) => Math.round((d.happy ?? 0) * 100))
+    const neutralData = data.map((d) => Math.round((d.neutral ?? 0) * 100))
+    const stressData = data.map((d) => Math.round((d.stressed ?? 0) * 100))
+    const sadData = data.map((d) => Math.round((d.sad ?? 0) * 100))
+    const angryData = data.map((d) => Math.round((d.angry ?? 0) * 100))
 
     // Draw chart (simplified representation)
     const chartHeight = ctx.canvas.height - 40
@@ -75,8 +88,9 @@ export function EmotionChart() {
       ctx.fillStyle = "#666"
       ctx.fillText(emotion.name, x + 15, legendY + 8)
     })
-  }, [])
+  }, [data])
 
+  if (!data || data.length === 0) return <div className="text-xs text-muted-foreground">Belum ada data tren emosi.</div>
   return (
     <div className="w-full h-[300px] relative">
       <canvas ref={canvasRef} width={800} height={300} className="w-full h-full"></canvas>

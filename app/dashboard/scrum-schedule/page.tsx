@@ -27,6 +27,18 @@ import { fetchWithAuth } from "@/lib/api";
 import { fetchUserProfile } from "@/lib/user-api";
 import { useToast } from "@/hooks/use-toast";
 
+// Helper: convert 'YYYY-MM-DDTHH:mm' (from datetime-local) to ISO string with local offset
+function toLocalISOString(dtStr: string) {
+  if (!dtStr) return "";
+  const date = new Date(dtStr);
+  // Get timezone offset in minutes
+  const tzOffset = -date.getTimezoneOffset();
+  const diff = tzOffset >= 0 ? "+" : "-";
+  const pad = (n: number) => `${Math.floor(Math.abs(n))}`.padStart(2, "0");
+  const offset = `${diff}${pad(tzOffset / 60)}:${pad(tzOffset % 60)}`;
+  return date.toISOString().slice(0, 19) + offset;
+}
+
 export default function ScrumSchedulePage() {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -40,6 +52,8 @@ export default function ScrumSchedulePage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joinLink, setJoinLink] = useState<string | null>(null);
+  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -62,6 +76,25 @@ export default function ScrumSchedulePage() {
     getUser();
   }, []);
 
+  // Refactor: fetchUpcoming diangkat ke parent scope
+  async function fetchUpcoming() {
+    setLoadingUpcoming(true);
+    try {
+      // Hitung offset timezone user dalam menit
+      const tzOffset = -new Date().getTimezoneOffset();
+      const res = await fetchWithAuth(`/api/sessions/today?tz_offset=${tzOffset}`);
+      setUpcomingSessions(res.sessions || []);
+    } catch {
+      setUpcomingSessions([]);
+    } finally {
+      setLoadingUpcoming(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchUpcoming();
+  }, []);
+
   const handleChange = (e: any) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -73,11 +106,13 @@ export default function ScrumSchedulePage() {
     setSuccess(null);
     setJoinLink(null);
     try {
+      // Convert scheduled_start to ISO string with offset
+      const scheduledStartISO = toLocalISOString(form.scheduled_start);
       const res = await fetchWithAuth("http://127.0.0.1:5000/api/sessions/create", {
         method: "POST",
         body: JSON.stringify({
           title: form.title,
-          scheduled_start: form.scheduled_start,
+          scheduled_start: scheduledStartISO,
           scheduled_duration: Number(form.scheduled_duration),
         }),
       });
@@ -89,8 +124,7 @@ export default function ScrumSchedulePage() {
         setJoinLink(invitationLink);
       }
       // Setelah membuat sesi, refresh daftar upcoming scrums
-      // (Trigger re-render UpcomingScrums, misal dengan state atau event, atau reload saja untuk simple)
-      // window.location.reload(); // (opsional, jika ingin hard reload)
+      fetchUpcoming(); // panggil ulang agar sesi baru langsung muncul
     } catch (e: any) {
       setError(e.message || "Gagal membuat sesi");
     } finally {
@@ -121,11 +155,12 @@ export default function ScrumSchedulePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <UpcomingScrums />
+              <UpcomingScrums sessions={upcomingSessions} />
             </CardContent>
           </Card>
 
           <div className="grid gap-6 md:grid-cols-2 mt-6">
+            {/* Sesi Aktif Real-time */}
             <Card>
               <CardHeader>
                 <CardTitle>Sesi Aktif</CardTitle>
@@ -134,36 +169,78 @@ export default function ScrumSchedulePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="font-medium text-green-800">
-                        Frontend Team Daily Scrum
-                      </h3>
-                      <p className="text-sm text-green-700">
-                        Started at 9:00 AM • 15 minutes duration
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-                      <span className="text-xs text-green-700">Live</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center text-sm text-green-700 mb-2">
-                    <Users className="mr-1 h-4 w-4" />5 participants
-                  </div>
-
-                  <div className="flex items-center text-sm text-green-700 mb-4">
-                    <Clock className="mr-1 h-4 w-4" />
-                    10 minutes elapsed
-                  </div>
-
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                    <Video className="mr-1 h-4 w-4" />
-                    Join Session
-                  </Button>
-                </div>
+                {loadingUpcoming ? (
+                  <div>Memuat sesi...</div>
+                ) : (
+                  (() => {
+                    const active = upcomingSessions.find(
+                      (s: any) => s.status === "ACTIVE" || s.status === "IN_PROGRESS"
+                    );
+                    if (!active) {
+                      return (
+                        <div className="text-sm text-gray-500">
+                          Tidak ada sesi aktif hari ini.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="font-medium text-green-800">
+                              {active.title}
+                            </h3>
+                            <p className="text-sm text-green-700">
+                              Dimulai pada{" "}
+                              {new Date(active.scheduled_start).toLocaleTimeString(
+                                "id-ID",
+                                { hour: "2-digit", minute: "2-digit" }
+                              )}{" "}
+                              • {active.scheduled_duration} menit
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                            <span className="text-xs text-green-700">Live</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center text-sm text-green-700 mb-2">
+                          <Users className="mr-1 h-4 w-4" />
+                          {active.participants
+                            ? active.participants.length
+                            : "-"}{" "}
+                          peserta
+                        </div>
+                        <div className="flex items-center text-sm text-green-700 mb-4">
+                          <Clock className="mr-1 h-4 w-4" />
+                          {/* Hitung waktu berjalan */}
+                          {(() => {
+                            const start = new Date(active.scheduled_start);
+                            const now = new Date();
+                            const elapsed = Math.floor(
+                              (now.getTime() - start.getTime()) / 60000
+                            );
+                            return elapsed > 0
+                              ? `${elapsed} menit berlalu`
+                              : "Baru dimulai";
+                          })()}
+                        </div>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                            if (active.join_token) {
+                              router.push(`/join/${active.join_token}`);
+                            }
+                          }}
+                        >
+                          <Video className="mr-1 h-4 w-4" />
+                          Gabung Sesi
+                        </Button>
+                      </div>
+                    );
+                  })()
+                )}
               </CardContent>
             </Card>
 
