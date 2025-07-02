@@ -22,7 +22,7 @@ export function UpcomingScrums() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchWithAuth("https://backend.xeroon.xyz/api/sessions/today")
+    fetchWithAuth("http://127.0.0.1:5000/api/sessions/today")
       .then((res) => setSessions(res.sessions))
       .catch((e) => setError("Gagal memuat sesi"))
       .finally(() => setLoading(false));
@@ -34,7 +34,7 @@ export function UpcomingScrums() {
         ? localStorage.getItem("access_token")
         : null;
     if (!token) return alert("Anda harus login untuk bergabung ke sesi.");
-    const socket = io("https://backend.xeroon.xyz", {
+    const socket = io("http://localhost:8088", {
       transports: ["websocket"],
       query: { token },
     });

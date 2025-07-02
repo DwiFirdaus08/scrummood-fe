@@ -114,7 +114,7 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
     // Connect to backend Socket.IO server
     if (!socketRef.current) {
       // Ganti URL di bawah sesuai backend Anda
-      socketRef.current = io("https://backend.xeroon.xyz", {
+      socketRef.current = io("http://127.0.0.1:5000", {
         transports: ["websocket"],
         query: {
           token: localStorage.getItem("access_token") || "",

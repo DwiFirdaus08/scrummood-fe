@@ -46,7 +46,7 @@ export default function ScrumSchedulePage() {
     setError(null)
     setSuccess(null)
     try {
-      await fetchWithAuth("https://backend.xeroon.xyz/api/sessions/create", {
+      await fetchWithAuth("http://127.0.0.1:5000/api/sessions/create", {
         method: "POST",
         body: JSON.stringify({
           ...form,

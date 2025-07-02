@@ -22,7 +22,7 @@ export function PersonalSuggestions({ source = "all" }: PersonalSuggestionsProps
       setLoading(true)
       setError(null)
       try {
-        const res = await fetchWithAuth("https://backend.xeroon.xyz/api/suggestions/personal")
+        const res = await fetchWithAuth("http://127.0.0.1:5000/api/suggestions/personal")
         setSuggestions(res)
       } catch (e: any) {
         setError(e.message || "Gagal mengambil data saran")
