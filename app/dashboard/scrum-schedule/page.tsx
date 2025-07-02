@@ -1,74 +1,110 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarPlus, Clock, Users, Video } from "lucide-react"
-import { UpcomingScrums } from "@/components/upcoming-scrums"
-import { fetchWithAuth } from "@/lib/api"
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarPlus, Clock, Users, Video } from "lucide-react";
+import { UpcomingScrums } from "@/components/upcoming-scrums";
+import { fetchWithAuth } from "@/lib/api";
+import { fetchUserProfile } from "@/lib/user-api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ScrumSchedulePage() {
-  const [date, setDate] = useState<Date | undefined>(new Date())
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [teams, setTeams] = useState<{ id: number; name: string }[]>([])
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
   const [form, setForm] = useState({
     title: "",
-    team_id: "",
     scheduled_start: "",
     scheduled_duration: "15",
-  })
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [joinLink, setJoinLink] = useState<string | null>(null);
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Ambil role dan tim dari localStorage (hasil login)
-    const profile = localStorage.getItem("user_profile")
-    if (profile) {
-      const user = JSON.parse(profile)
-      setUserRole(user.role)
-      setTeams(user.teams || [])
+    async function getUser() {
+      try {
+        const res = await fetchUserProfile();
+        setUserRole(res.user.role);
+        setTeams(res.teams || []);
+      } catch {
+        // fallback ke localStorage jika gagal fetch
+        const profile = localStorage.getItem("user_profile");
+        if (profile) {
+          const user = JSON.parse(profile);
+          setUserRole(user.role);
+          setTeams(user.teams || []);
+        }
+      }
     }
-  }, [])
+    getUser();
+  }, []);
 
   const handleChange = (e: any) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e: any) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    setJoinLink(null);
     try {
-      await fetchWithAuth("http://127.0.0.1:5000/api/sessions/create", {
+      const res = await fetchWithAuth("http://127.0.0.1:5000/api/sessions/create", {
         method: "POST",
         body: JSON.stringify({
-          ...form,
-          team_id: Number(form.team_id),
-          scheduled_duration: Number(form.scheduled_duration),
+          title: form.title,
           scheduled_start: form.scheduled_start,
+          scheduled_duration: Number(form.scheduled_duration),
         }),
-      })
-      setSuccess("Sesi berhasil dibuat!")
-      setForm({ title: "", team_id: "", scheduled_start: "", scheduled_duration: "15" })
+      });
+      setSuccess("Sesi berhasil dibuat!");
+      setForm({ title: "", scheduled_start: "", scheduled_duration: "15" });
+      if (res.session && res.session.id) {
+        // Buat link undangan berbasis session_id
+        const invitationLink = `${window.location.origin}/join/${res.session.id}`;
+        setJoinLink(invitationLink);
+      }
+      // Setelah membuat sesi, refresh daftar upcoming scrums
+      // (Trigger re-render UpcomingScrums, misal dengan state atau event, atau reload saja untuk simple)
+      // window.location.reload(); // (opsional, jika ingin hard reload)
     } catch (e: any) {
-      setError(e.message || "Gagal membuat sesi")
+      setError(e.message || "Gagal membuat sesi");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Jadwal Scrum</h1>
-        <p className="text-muted-foreground">Kelola dan jadwalkan sesi Daily Scrum Anda</p>
+        <p className="text-muted-foreground">
+          Kelola dan jadwalkan sesi Daily Scrum Anda
+        </p>
       </div>
 
       <Tabs defaultValue="upcoming">
@@ -80,7 +116,9 @@ export default function ScrumSchedulePage() {
           <Card>
             <CardHeader>
               <CardTitle>Scrum Hari Ini</CardTitle>
-              <CardDescription>Semua sesi yang dijadwalkan hari ini</CardDescription>
+              <CardDescription>
+                Semua sesi yang dijadwalkan hari ini
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <UpcomingScrums />
@@ -91,14 +129,20 @@ export default function ScrumSchedulePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Sesi Aktif</CardTitle>
-                <CardDescription>Sesi Scrum yang sedang berjalan</CardDescription>
+                <CardDescription>
+                  Sesi Scrum yang sedang berjalan
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-medium text-green-800">Frontend Team Daily Scrum</h3>
-                      <p className="text-sm text-green-700">Started at 9:00 AM • 15 minutes duration</p>
+                      <h3 className="font-medium text-green-800">
+                        Frontend Team Daily Scrum
+                      </h3>
+                      <p className="text-sm text-green-700">
+                        Started at 9:00 AM • 15 minutes duration
+                      </p>
                     </div>
                     <div className="flex items-center space-x-1">
                       <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
@@ -126,7 +170,9 @@ export default function ScrumSchedulePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Jadwal Minggu Ini</CardTitle>
-                <CardDescription>Ikhtisar semua sesi minggu ini</CardDescription>
+                <CardDescription>
+                  Ikhtisar semua sesi minggu ini
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -181,60 +227,116 @@ export default function ScrumSchedulePage() {
           </div>
         </TabsContent>
         <TabsContent value="schedule">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Jadwalkan Sesi Baru</CardTitle>
-                <CardDescription>Buat sesi Daily Scrum baru</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {userRole === "facilitator" ? (
+          {userRole?.toLowerCase() === "facilitator" ? (
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Jadwalkan Sesi Baru</CardTitle>
+                  <CardDescription>Buat sesi Daily Scrum baru</CardDescription>
+                </CardHeader>
+                <CardContent>
                   <form className="space-y-4" onSubmit={handleSubmit}>
                     <div className="space-y-2">
                       <Label htmlFor="title">Judul Sesi</Label>
-                      <Input id="title" name="title" value={form.title} onChange={handleChange} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="team_id">Tim</Label>
-                      <select id="team_id" name="team_id" value={form.team_id} onChange={handleChange} required className="w-full border rounded px-2 py-1">
-                        <option value="">Pilih tim</option>
-                        {teams.map((team) => (
-                          <option key={team.id} value={team.id}>{team.name}</option>
-                        ))}
-                      </select>
+                      <Input
+                        id="title"
+                        name="title"
+                        value={form.title}
+                        onChange={handleChange}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="scheduled_start">Waktu Mulai</Label>
-                      <Input id="scheduled_start" name="scheduled_start" type="datetime-local" value={form.scheduled_start} onChange={handleChange} required />
+                      <Input
+                        id="scheduled_start"
+                        name="scheduled_start"
+                        type="datetime-local"
+                        value={form.scheduled_start}
+                        onChange={handleChange}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="scheduled_duration">Durasi (menit)</Label>
-                      <Input id="scheduled_duration" name="scheduled_duration" type="number" min="5" max="120" value={form.scheduled_duration} onChange={handleChange} required />
+                      <Input
+                        id="scheduled_duration"
+                        name="scheduled_duration"
+                        type="number"
+                        min="5"
+                        max="120"
+                        value={form.scheduled_duration}
+                        onChange={handleChange}
+                        required
+                      />
                     </div>
-                    <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={loading}>
+                    <Button
+                      type="submit"
+                      className="w-full bg-teal-600 hover:bg-teal-700"
+                      disabled={loading}
+                    >
                       <CalendarPlus className="mr-2 h-4 w-4" />
                       {loading ? "Menyimpan..." : "Jadwalkan Sesi"}
                     </Button>
-                    {success && <div className="text-green-600 mt-2">{success}</div>}
+                    {success && (
+                      <div className="text-green-600 mt-2">{success}</div>
+                    )}
                     {error && <div className="text-red-600 mt-2">{error}</div>}
                   </form>
-                ) : (
-                  <div className="text-gray-500">Hanya fasilitator yang dapat membuat sesi baru.</div>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Pilih Tanggal</CardTitle>
-                <CardDescription>Pilih kapan untuk menjadwalkan sesi Anda</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Calendar mode="single" selected={date} onSelect={setDate} className="rounded-md border" />
-              </CardContent>
-            </Card>
-          </div>
+                  {joinLink && (
+                    <div className="mt-4 p-2 bg-blue-50 border border-blue-200 rounded">
+                      <span className="font-medium">
+                        Link undangan untuk anggota tim:
+                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="text"
+                          value={joinLink}
+                          readOnly
+                          className="w-full px-2 py-1 border rounded text-xs bg-gray-100"
+                          onFocus={(e) => e.target.select()}
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(joinLink);
+                            toast({
+                              title: "Link berhasil disalin!",
+                              description: "Undangan sesi telah disalin ke clipboard.",
+                            });
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pilih Tanggal</CardTitle>
+                  <CardDescription>
+                    Pilih kapan untuk menjadwalkan sesi Anda
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    className="rounded-md border"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 py-10">
+              Hanya facilitator yang dapat membuat jadwal sesi baru.
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

@@ -5,6 +5,7 @@ import { Calendar, Clock, Users, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { fetchWithAuth } from "@/lib/api";
 import io from "socket.io-client";
+import { useRouter } from "next/navigation";
 
 type ScrumSession = {
   id: number;
@@ -20,6 +21,7 @@ export function UpcomingScrums() {
   const [sessions, setSessions] = useState<ScrumSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     fetchWithAuth("http://127.0.0.1:5000/api/sessions/today")
@@ -28,25 +30,13 @@ export function UpcomingScrums() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleJoin = (sessionId: number) => {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("access_token")
-        : null;
-    if (!token) return alert("Anda harus login untuk bergabung ke sesi.");
-    const socket = io("http://localhost:8088", {
-      transports: ["websocket"],
-      query: { token },
-    });
-    socket.emit("join_session", { session_id: sessionId });
-    socket.on("join_session_response", (data) => {
-      alert("Berhasil join sesi! (session_id: " + data.session_id + ")");
-      socket.disconnect();
-    });
-    socket.on("error", (err) => {
-      alert("Gagal join sesi: " + (err.message || err));
-      socket.disconnect();
-    });
+  const handleJoin = (session: ScrumSession) => {
+    // Redirect ke halaman join dengan join_token
+    if ((session as any).join_token) {
+      router.push(`/join/${(session as any).join_token}`);
+    } else {
+      alert("Link join tidak tersedia untuk sesi ini.");
+    }
   };
 
   if (loading) return <div>Memuat sesi...</div>;
@@ -78,7 +68,7 @@ export function UpcomingScrums() {
             <Button
               size="sm"
               className="h-8 bg-teal-600 hover:bg-teal-700"
-              onClick={() => handleJoin(session.id)}
+              onClick={() => handleJoin(session)}
             >
               <Video className="mr-1 h-4 w-4" />
               Gabung
