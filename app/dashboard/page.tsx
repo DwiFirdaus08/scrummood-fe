@@ -71,10 +71,24 @@ export default function Dashboard() {
     s.on("session_ended", fetchDashboardData);
     s.on("ai_suggestions_update", fetchDashboardData);
     s.on("ai_insights_update", fetchDashboardData);
+
+    // --- JOIN SESSION ROOM FOR REAL-TIME EMOTION ---
+    // Ambil session_id aktif dari upcoming (atau localStorage jika perlu)
+    const activeSession = upcoming.find(
+      (sess) => sess.status === "ACTIVE" || sess.status === "IN_PROGRESS"
+    );
+    if (activeSession && activeSession.id) {
+      s.emit("join_session", { session_id: activeSession.id });
+    } else {
+      // Fallback: coba dari localStorage
+      const sessionId = localStorage.getItem("current_session_id");
+      if (sessionId) s.emit("join_session", { session_id: sessionId });
+    }
+
     return () => {
       s.disconnect();
     };
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, upcoming]);
 
   // Listen for real-time emotion updates (from meeting page via Socket.IO)
   useEffect(() => {
@@ -143,12 +157,85 @@ export default function Dashboard() {
     );
 
   // --- FIX: Always show chart, fallback to real-time only if no backend data ---
-  const chartData = hasEmotionData
+  // Ensure all emotion keys are present for each data point
+  const EMOTION_KEYS = [
+    "happy",
+    "sad",
+    "angry",
+    "fearful",
+    "disgusted",
+    "surprised",
+    "neutral",
+  ];
+  const fillEmotionKeys = (entry: any) => {
+    const filled: any = { ...entry };
+    EMOTION_KEYS.forEach((k) => {
+      if (typeof filled[k] !== "number") filled[k] = 0;
+    });
+    return filled;
+  };
+  // --- DUMMY DATA FALLBACK FOR CHARTS ---
+  const dummyChartData = [
+    {
+      date: new Date(Date.now() - 3600 * 1000 * 4).toISOString(),
+      happy: 0.4,
+      neutral: 0.3,
+      stressed: 0.1,
+      sad: 0.1,
+      angry: 0.1,
+    },
+    {
+      date: new Date(Date.now() - 3600 * 1000 * 3).toISOString(),
+      happy: 0.5,
+      neutral: 0.2,
+      stressed: 0.1,
+      sad: 0.1,
+      angry: 0.1,
+    },
+    {
+      date: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
+      happy: 0.3,
+      neutral: 0.4,
+      stressed: 0.15,
+      sad: 0.1,
+      angry: 0.05,
+    },
+    {
+      date: new Date(Date.now() - 3600 * 1000 * 1).toISOString(),
+      happy: 0.6,
+      neutral: 0.2,
+      stressed: 0.05,
+      sad: 0.05,
+      angry: 0.1,
+    },
+    {
+      date: new Date().toISOString(),
+      happy: 0.7,
+      neutral: 0.1,
+      stressed: 0.05,
+      sad: 0.05,
+      angry: 0.1,
+    },
+  ];
+  const chartData = (hasEmotionData
     ? combinedEmotionTrend
-    : realtimeEmotionTrend.map((e) => ({
+    : realtimeEmotionTrend.length > 0
+    ? realtimeEmotionTrend.map((e) => ({
         date: new Date(e.timestamp).toISOString(),
-        ...e,
-      }));
+        happy: e.happy ?? 0,
+        neutral: e.neutral ?? 0,
+        stressed:
+          typeof e.stressed === "number"
+            ? e.stressed
+            : ((e.fearful ?? 0) + (e.disgusted ?? 0)) / 2,
+        sad: e.sad ?? 0,
+        angry: e.angry ?? 0,
+      }))
+    : dummyChartData
+  ).map(fillEmotionKeys);
+
+  // Debug: log chartData to verify structure
+  console.log("chartData", chartData);
 
   // After ending meeting, redirect to dashboard
   const endMeetingAndRedirect = async () => {

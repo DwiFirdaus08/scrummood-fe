@@ -33,7 +33,7 @@ export function SessionHistory({ team }: SessionHistoryProps) {
 
   useEffect(() => {
     setLoading(true)
-    fetch("/api/session_history", { credentials: "include" })
+    fetch("/api/sessions/session_history", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         setSessions(data.sessions || [])
@@ -43,7 +43,7 @@ export function SessionHistory({ team }: SessionHistoryProps) {
   }, [])
 
   const handleViewSummary = (session: SessionSummary) => {
-    fetch(`/api/session_summary/${session.id}`, { credentials: "include" })
+    fetch(`/api/sessions/session_summary/${session.id}`, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => setSelectedSession(data))
   }

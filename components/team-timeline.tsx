@@ -1,126 +1,126 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import React, { useEffect, useRef } from "react"
 
-export function TeamTimeline() {
+export type TeamTimelineData = {
+  date: string
+  happy?: number
+  neutral?: number
+  stressed?: number
+  sad?: number
+  angry?: number
+}
+
+export function TeamTimeline({ data = [] }: { data?: TeamTimelineData[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d")
-    if (!ctx) return
+    if (!ctx || !data || data.length === 0) return
 
-    // Mock data for the timeline
-    const timePoints = ["09.00", "09.05", "09.10", "09.15", "09.20", "09.25", "09.30"]
+    // Build labels and emotion arrays from data
+    const labels = data.map((d) => new Date(d.date).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }))
+    const happyData = data.map((d) => Math.round((d.happy ?? 0) * 100))
+    const neutralData = data.map((d) => Math.round((d.neutral ?? 0) * 100))
+    const stressData = data.map((d) => Math.round((d.stressed ?? 0) * 100))
+    const sadData = data.map((d) => Math.round((d.sad ?? 0) * 100))
+    const angryData = data.map((d) => Math.round((d.angry ?? 0) * 100))
 
-    // Emotion data for each type over time (0-100)
-    const happyData = [70, 75, 65, 60, 65, 70, 75]
-    const neutralData = [20, 15, 20, 25, 20, 15, 10]
-    const stressedData = [5, 5, 10, 10, 10, 10, 5]
-    const sadData = [3, 3, 3, 3, 3, 3, 5]
-    const angryData = [2, 2, 2, 2, 2, 2, 5]
+    // Chart dimensions
+    const chartHeight = ctx.canvas.height - 40
+    const chartWidth = ctx.canvas.width - 40
+    const leftPad = 30
+    const bottomPad = 20
+    const topPad = 10
+    const rightPad = 10
+    const n = labels.length
 
-    // Clear canvas
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-
-    // Set up chart dimensions
-    const chartHeight = ctx.canvas.height - 80
-    const chartWidth = ctx.canvas.width - 60
 
     // Draw axes
     ctx.beginPath()
-    ctx.moveTo(50, 40)
-    ctx.lineTo(50, chartHeight + 40)
-    ctx.lineTo(chartWidth + 50, chartHeight + 40)
+    ctx.moveTo(leftPad, topPad)
+    ctx.lineTo(leftPad, chartHeight + topPad)
+    ctx.lineTo(chartWidth + leftPad, chartHeight + topPad)
     ctx.strokeStyle = "#ccc"
     ctx.stroke()
 
-    // Draw time labels
-    ctx.font = "12px Arial"
+    // Draw y-axis labels and grid
+    ctx.font = "10px Arial"
     ctx.fillStyle = "#666"
-    timePoints.forEach((time, i) => {
-      const x = 50 + i * (chartWidth / (timePoints.length - 1))
-      ctx.fillText(time, x - 15, chartHeight + 60)
-    })
-
-    // Draw percentage labels
-    for (let i = 0; i <= 100; i += 20) {
-      const y = chartHeight + 40 - (i / 100) * chartHeight
-      ctx.fillText(`${i}%`, 20, y + 5)
-
-      // Draw horizontal grid lines
+    ctx.textAlign = "right"
+    ctx.textBaseline = "middle"
+    for (let i = 0; i <= 5; i++) {
+      const y = chartHeight + topPad - (i * chartHeight) / 5
+      ctx.fillText(`${i * 20}%`, leftPad - 5, y)
       ctx.beginPath()
-      ctx.moveTo(50, y)
-      ctx.lineTo(chartWidth + 50, y)
+      ctx.moveTo(leftPad, y)
+      ctx.lineTo(chartWidth + leftPad, y)
       ctx.strokeStyle = "#eee"
       ctx.stroke()
     }
 
-    // Draw stacked area chart
-    const drawStackedArea = (data: number[], prevData: number[] = [], color: string) => {
+    // Draw x-axis labels
+    ctx.textAlign = "center"
+    ctx.textBaseline = "top"
+    labels.forEach((label, i) => {
+      const x = leftPad + (i * (chartWidth / (n - 1)))
+      ctx.fillText(label, x, chartHeight + topPad + 8)
+    })
+
+    // Helper to draw line/area
+    const drawLine = (data: number[], color: string, fill?: string) => {
       ctx.beginPath()
-
-      // Start at the bottom left
-      ctx.moveTo(50, chartHeight + 40)
-
-      // Draw bottom line (previous data top line)
-      for (let i = 0; i < timePoints.length; i++) {
-        const x = 50 + i * (chartWidth / (timePoints.length - 1))
-        const prevValue = prevData[i] || 0
-        const y = chartHeight + 40 - (prevValue / 100) * chartHeight
-        ctx.lineTo(x, y)
+      data.forEach((value, i) => {
+        const x = leftPad + (i * (chartWidth / (n - 1)))
+        const y = chartHeight + topPad - (value / 100) * chartHeight
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      })
+      ctx.strokeStyle = color
+      ctx.lineWidth = 2
+      ctx.stroke()
+      if (fill) {
+        ctx.lineTo(leftPad + (chartWidth), chartHeight + topPad)
+        ctx.lineTo(leftPad, chartHeight + topPad)
+        ctx.closePath()
+        ctx.globalAlpha = 0.12
+        ctx.fillStyle = fill
+        ctx.fill()
+        ctx.globalAlpha = 1
       }
-
-      // Draw top line (current data + previous data)
-      for (let i = timePoints.length - 1; i >= 0; i--) {
-        const x = 50 + i * (chartWidth / (timePoints.length - 1))
-        const value = data[i] + (prevData[i] || 0)
-        const y = chartHeight + 40 - (value / 100) * chartHeight
-        ctx.lineTo(x, y)
-      }
-
-      ctx.closePath()
-      ctx.fillStyle = color
-      ctx.fill()
     }
 
-    // Calculate cumulative data for stacking
-    const angryStack = [...angryData]
-    const sadStack = angryData.map((val, i) => val + sadData[i])
-    const stressedStack = sadStack.map((val, i) => val + stressedData[i])
-    const neutralStack = stressedStack.map((val, i) => val + neutralData[i])
-
-    // Draw each emotion area
-    drawStackedArea(happyData, neutralStack, "#4ade80") // Green for happy
-    drawStackedArea(neutralData, stressedStack, "#60a5fa") // Blue for neutral
-    drawStackedArea(stressedData, sadStack, "#facc15") // Yellow for stressed
-    drawStackedArea(sadData, angryStack, "#94a3b8") // Gray for sad
-    drawStackedArea(angryData, [], "#f87171") // Red for angry
+    // Draw each emotion as a line (with area fill for effect)
+    drawLine(happyData, "#4ade80", "#4ade80") // Green
+    drawLine(neutralData, "#60a5fa", "#60a5fa") // Blue
+    drawLine(stressData, "#facc15", "#facc15") // Yellow
+    drawLine(sadData, "#94a3b8", "#94a3b8") // Gray
+    drawLine(angryData, "#f87171", "#f87171") // Red
 
     // Draw legend
-    const legendItems = [
-      { label: "Senang", color: "#4ade80" },
-      { label: "Netral", color: "#60a5fa" },
-      { label: "Stres", color: "#facc15" },
-      { label: "Sedih", color: "#94a3b8" },
-      { label: "Marah", color: "#f87171" },
+    const legendY = 15
+    const emotions = [
+      { name: "Bahagia", color: "#4ade80" },
+      { name: "Netral", color: "#60a5fa" },
+      { name: "Stres", color: "#facc15" },
+      { name: "Sedih", color: "#94a3b8" },
+      { name: "Marah", color: "#f87171" },
     ]
-
-    const legendX = 50
-    const legendY = 20
-
-    legendItems.forEach((item, i) => {
-      const x = legendX + i * 100
-      ctx.fillStyle = item.color
-      ctx.fillRect(x, legendY, 15, 15)
+    emotions.forEach((emotion, i) => {
+      const x = 50 + i * 80
+      ctx.fillStyle = emotion.color
+      ctx.fillRect(x, legendY, 10, 10)
       ctx.fillStyle = "#666"
-      ctx.font = "12px Arial"
-      ctx.fillText(item.label, x + 20, legendY + 12)
+      ctx.font = "11px Arial"
+      ctx.fillText(emotion.name, x + 15, legendY + 8)
     })
-  }, [])
+  }, [data])
 
+  if (!data || data.length === 0) return <div className="text-xs text-muted-foreground">Belum ada data tren emosi.</div>
   return (
-    <div className="w-full h-[400px] relative">
-      <canvas ref={canvasRef} width={800} height={400} className="w-full h-full"></canvas>
+    <div className="w-full h-[300px] relative">
+      <canvas ref={canvasRef} width={800} height={300} className="w-full h-full"></canvas>
     </div>
   )
 }

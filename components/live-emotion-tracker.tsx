@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -36,6 +36,8 @@ interface LiveEmotionTrackerProps {
 
 export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetected, teamEmotions = [], currentUserName }: LiveEmotionTrackerProps) {
   const socketRef = useRef<Socket | null>(null)
+  // --- NEW: Local state for real-time team emotions ---
+  const [liveTeamEmotions, setLiveTeamEmotions] = useState<TeamEmotionMember[]>(teamEmotions)
 
   // --- SOCKET.IO REAL-TIME EMOTION TRACKING ---
   useEffect(() => {
@@ -57,8 +59,36 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
 
     // Listen for real-time emotion updates
     socket.on("emotion_update", (payload) => {
-      // payload: { session_id, user_id, emotion }
-      // TODO: Handle real-time updates if needed
+      // payload: { session_id, user_id, emotions, face_detected, timestamp }
+      setLiveTeamEmotions((prev) => {
+        // Find if user already exists
+        const idx = prev.findIndex((m) => m.id === payload.user_id)
+        const updatedMember: TeamEmotionMember = {
+          id: payload.user_id,
+          name: payload.user_id, // Optionally replace with real name if available
+          avatar: payload.user_id[0] || "U",
+          emotions: {
+            happy: payload.emotions.happy ?? 0,
+            sad: payload.emotions.sad ?? 0,
+            angry: payload.emotions.angry ?? 0,
+            fearful: payload.emotions.fearful ?? 0,
+            disgusted: payload.emotions.disgusted ?? 0,
+            surprised: payload.emotions.surprised ?? 0,
+            neutral: payload.emotions.neutral ?? 0,
+          },
+          faceDetected: payload.face_detected,
+          isCurrentUser: payload.user_id === (localStorage.getItem("user_id") || "anonymous"),
+        }
+        if (idx !== -1) {
+          // Update existing
+          const copy = [...prev]
+          copy[idx] = updatedMember
+          return copy
+        } else {
+          // Add new
+          return [...prev, updatedMember]
+        }
+      })
     })
 
     // Listen for user join/leave events (opsional, update presence)
@@ -75,6 +105,33 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
       socket.disconnect()
     }
   }, [])
+
+  // Emit real-time emotion to backend for dashboard chart
+  useEffect(() => {
+    if (!socketRef.current) return;
+    if (currentUserEmotions && typeof currentUserFaceDetected === "boolean") {
+      const sessionId = localStorage.getItem("current_session_id") || "1";
+      const userId = localStorage.getItem("user_id") || "anonymous";
+      // Mapping: chart butuh 'stressed', ambil dari fearful+disgusted jika tidak ada
+      const { happy, neutral, sad, angry, fearful, disgusted } = currentUserEmotions;
+      const stressed = (typeof (currentUserEmotions as any).stressed === "number")
+        ? (currentUserEmotions as any).stressed
+        : ((fearful ?? 0) + (disgusted ?? 0)) / 2;
+      socketRef.current.emit("emotion_update", {
+        session_id: sessionId,
+        user_id: userId,
+        emotions: {
+          happy: happy ?? 0,
+          neutral: neutral ?? 0,
+          stressed,
+          sad: sad ?? 0,
+          angry: angry ?? 0,
+        },
+        face_detected: currentUserFaceDetected,
+        timestamp: Date.now(),
+      });
+    }
+  }, [currentUserEmotions, currentUserFaceDetected])
 
   const getEmotionColor = (emotion: string) => {
     const colors = {
@@ -109,8 +166,8 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
   }
 
   // Calculate team average and active count, fallback to current user if needed
-  const activeMembers = teamEmotions.filter((member) => member.faceDetected)
-  const hasCurrentUserActive = !teamEmotions.length && currentUserFaceDetected && currentUserEmotions
+  const activeMembers = liveTeamEmotions.filter((member) => member.faceDetected)
+  const hasCurrentUserActive = !liveTeamEmotions.length && currentUserFaceDetected && currentUserEmotions
   const teamAverage = activeMembers.length > 0
     ? (() => {
         const avg: EmotionData = { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 0 }
@@ -127,8 +184,8 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
     : (hasCurrentUserActive ? currentUserEmotions : null)
   const activeMembersCount = activeMembers.length > 0 ? activeMembers.length : (hasCurrentUserActive ? 1 : 0)
 
-  const displayTeam = teamEmotions.length > 0
-    ? teamEmotions
+  const displayTeam = liveTeamEmotions.length > 0
+    ? liveTeamEmotions
     : (currentUserName ? [{
       id: "current-user",
       name: currentUserName,

@@ -1,10 +1,59 @@
+"use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TeamEmotionMap } from "@/components/team-emotion-map"
 import { TeamTimeline } from "@/components/team-timeline"
 import { TeamComparison } from "@/components/team-comparison"
+import { useEffect, useState } from "react"
+import io from "socket.io-client"
 
 export default function TeamVisualizationPage() {
+  const [realtimeEmotionTrend, setRealtimeEmotionTrend] = useState<any[]>([])
+  const [socket, setSocket] = useState<any>(null)
+
+  useEffect(() => {
+    const s = io(process.env.NEXT_PUBLIC_SOCKET_IO_URL, {
+      transports: ["websocket"],
+      withCredentials: true,
+    })
+    setSocket(s)
+    const handleEmotionUpdate = (payload: any) => {
+      if (!payload || !payload.emotions) return
+      const timestamp = Date.now()
+      setRealtimeEmotionTrend((prev) => [...prev, { timestamp, ...payload.emotions }].slice(-50))
+    }
+    s.on("emotion_update", handleEmotionUpdate)
+    return () => {
+      s.off("emotion_update", handleEmotionUpdate)
+      s.disconnect()
+    }
+  }, [])
+
+  // --- DUMMY DATA FALLBACK FOR TIMELINE ---
+  const dummyTimelineData = [
+    { date: new Date(Date.now() - 3600 * 1000 * 4).toISOString(), happy: 0.4, neutral: 0.3, stressed: 0.1, sad: 0.1, angry: 0.1 },
+    { date: new Date(Date.now() - 3600 * 1000 * 3).toISOString(), happy: 0.5, neutral: 0.2, stressed: 0.1, sad: 0.1, angry: 0.1 },
+    { date: new Date(Date.now() - 3600 * 1000 * 2).toISOString(), happy: 0.3, neutral: 0.4, stressed: 0.15, sad: 0.1, angry: 0.05 },
+    { date: new Date(Date.now() - 3600 * 1000 * 1).toISOString(), happy: 0.6, neutral: 0.2, stressed: 0.05, sad: 0.05, angry: 0.1 },
+    { date: new Date().toISOString(), happy: 0.7, neutral: 0.1, stressed: 0.05, sad: 0.05, angry: 0.1 },
+  ]
+
+  // Format data for TeamTimeline (timelineData)
+  const timelineData =
+    realtimeEmotionTrend.length > 0
+      ? realtimeEmotionTrend.map((e) => ({
+          date: new Date(e.timestamp).toISOString(),
+          happy: e.happy ?? 0,
+          neutral: e.neutral ?? 0,
+          stressed: typeof e.stressed === "number" ? e.stressed : ((e.fearful ?? 0) + (e.disgusted ?? 0)) / 2,
+          sad: e.sad ?? 0,
+          angry: e.angry ?? 0,
+        }))
+      : dummyTimelineData
+
+  console.log("timelineData", timelineData)
+
   return (
     <div className="space-y-6">
       <div>
@@ -35,10 +84,10 @@ export default function TeamVisualizationPage() {
           <Card>
             <CardHeader>
               <CardTitle>Garis Waktu Emosi</CardTitle>
-              <CardDescription>Lacak perubahan emosi selama sesi berlangsung</CardDescription>
+              <CardDescription>Lacak perubahan emosi secara real-time hari ini</CardDescription>
             </CardHeader>
             <CardContent>
-              <TeamTimeline />
+              <TeamTimeline data={timelineData} />
             </CardContent>
           </Card>
         </TabsContent>
