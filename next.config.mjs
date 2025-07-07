@@ -3,10 +3,11 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'http://127.0.0.1:5000/api/:path*', // Proxy to Flask backend
+        source: "/api/:path*",
+        destination:
+          "https://scrummood-be-production.up.railway.app/api/:path*", // Proxy to Flask backend
       },
-    ]
+    ];
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -17,6 +18,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;

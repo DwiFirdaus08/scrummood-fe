@@ -2,5 +2,5 @@
 import { fetchWithAuth } from "@/lib/api";
 
 export async function fetchUserProfile() {
-  return fetchWithAuth("http://127.0.0.1:5000/api/auth/profile");
+  return fetchWithAuth("https://scrummood-be-production.up.railway.app/api/auth/profile");
 }

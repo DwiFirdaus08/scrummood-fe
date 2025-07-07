@@ -29,7 +29,9 @@ export default function SessionHistoryList() {
 
   useEffect(() => {
     setLoading(true);
-    fetchWithAuth("http://127.0.0.1:5000/api/sessions/history")
+    fetchWithAuth(
+      "https://scrummood-be-production.up.railway.app/api/sessions/history"
+    )
       .then((res) => setSessions(res.sessions))
       .catch(() => setError("Gagal memuat riwayat sesi"))
       .finally(() => setLoading(false));
@@ -41,7 +43,7 @@ export default function SessionHistoryList() {
     setSummaryLoading(true);
     try {
       const res = await fetchWithAuth(
-        `http://127.0.0.1:5000/api/emotions/session/${session.id}/summary`
+        `https://scrummood-be-production.up.railway.app/api/emotions/session/${session.id}/summary`
       );
       setSummary(res);
     } catch {

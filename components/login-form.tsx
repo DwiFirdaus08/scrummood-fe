@@ -1,54 +1,65 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function LoginForm() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-    const form = e.currentTarget
-    const email = (form.elements.namedItem("email") as HTMLInputElement)?.value
-    const password = (form.elements.namedItem("password") as HTMLInputElement)?.value
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    const form = e.currentTarget;
+    const email = (form.elements.namedItem("email") as HTMLInputElement)?.value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement)
+      ?.value;
     if (!email || !password) {
-      setError("Email dan password wajib diisi")
-      setIsLoading(false)
-      return
+      setError("Email dan password wajib diisi");
+      setIsLoading(false);
+      return;
     }
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
+      const res = await fetch(
+        "https://scrummood-be-production.up.railway.app/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        }
+      );
       if (!res.ok) {
-        const err = await res.json()
-        setError(err.error || "Login gagal")
-        setIsLoading(false)
-        return
+        const err = await res.json();
+        setError(err.error || "Login gagal");
+        setIsLoading(false);
+        return;
       }
-      const data = await res.json()
-      localStorage.setItem("access_token", data.access_token)
-      localStorage.setItem("refresh_token", data.refresh_token)
-      setIsLoading(false)
-      router.push("/dashboard")
+      const data = await res.json();
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("refresh_token", data.refresh_token);
+      setIsLoading(false);
+      router.push("/dashboard");
     } catch (e: any) {
-      setError(e.message || "Login gagal")
-      setIsLoading(false)
+      setError(e.message || "Login gagal");
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full">
@@ -61,13 +72,21 @@ export function LoginForm() {
           <form onSubmit={handleLogin}>
             <CardHeader>
               <CardTitle>Masuk</CardTitle>
-              <CardDescription>Masukkan kredensial Anda untuk mengakses akun</CardDescription>
+              <CardDescription>
+                Masukkan kredensial Anda untuk mengakses akun
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {error && <div className="text-red-500 text-sm">{error}</div>}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" placeholder="nama@email.com" required />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="nama@email.com"
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Kata Sandi</Label>
@@ -75,7 +94,11 @@ export function LoginForm() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-teal-600 hover:bg-teal-700"
+                disabled={isLoading}
+              >
                 {isLoading ? "Sedang masuk..." : "Masuk"}
               </Button>
             </CardFooter>
@@ -84,7 +107,9 @@ export function LoginForm() {
         <TabsContent value="register">
           <CardHeader>
             <CardTitle>Buat Akun</CardTitle>
-            <CardDescription>Masukkan informasi Anda untuk membuat akun baru</CardDescription>
+            <CardDescription>
+              Masukkan informasi Anda untuk membuat akun baru
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -93,7 +118,12 @@ export function LoginForm() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="register-email">Email</Label>
-              <Input id="register-email" type="email" placeholder="nama@email.com" required />
+              <Input
+                id="register-email"
+                type="email"
+                placeholder="nama@email.com"
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="register-password">Kata Sandi</Label>
@@ -111,10 +141,12 @@ export function LoginForm() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button className="w-full bg-teal-600 hover:bg-teal-700">Buat Akun</Button>
+            <Button className="w-full bg-teal-600 hover:bg-teal-700">
+              Buat Akun
+            </Button>
           </CardFooter>
         </TabsContent>
       </Tabs>
     </Card>
-  )
+  );
 }

@@ -33,7 +33,7 @@ export default function JoinSessionPage({
       setError(null);
       try {
         const res = await fetchWithAuth(
-          `http://127.0.0.1:5000/api/sessions/join/${joinToken}`
+          `https://scrummood-be-production.up.railway.app/api/sessions/join/${joinToken}`
         );
         setSession(res.session);
       } catch (e: any) {

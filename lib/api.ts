@@ -2,7 +2,7 @@
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   // Jika url diawali /api/sessions, arahkan ke backend Flask
   const backendUrl = url.startsWith("/api/sessions")
-    ? `http://localhost:5000${url}`
+    ? `https://scrummood-be-production.up.railway.app/${url}`
     : url;
   const token =
     typeof window !== "undefined" ? localStorage.getItem("access_token") : null;

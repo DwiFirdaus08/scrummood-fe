@@ -111,7 +111,7 @@ export default function ScrumSchedulePage() {
       // Convert scheduled_start to ISO string with offset
       const scheduledStartISO = toLocalISOString(form.scheduled_start);
       const res = await fetchWithAuth(
-        "http://127.0.0.1:5000/api/sessions/create",
+        "https://scrummood-be-production.up.railway.app/api/sessions/create",
         {
           method: "POST",
           body: JSON.stringify({

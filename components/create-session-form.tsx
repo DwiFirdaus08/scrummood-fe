@@ -29,15 +29,18 @@ export function CreateSessionForm({
     setError(null);
     setSuccess(false);
     try {
-      await fetchWithAuth("http://127.0.0.1:5000/api/sessions/create", {
-        method: "POST",
-        body: JSON.stringify({
-          title,
-          team_id: Number(teamId),
-          scheduled_start: scheduledStart,
-          scheduled_duration: Number(scheduledDuration),
-        }),
-      });
+      await fetchWithAuth(
+        "https://scrummood-be-production.up.railway.app/api/sessions/create",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title,
+            team_id: Number(teamId),
+            scheduled_start: scheduledStart,
+            scheduled_duration: Number(scheduledDuration),
+          }),
+        }
+      );
       setSuccess(true);
       setTitle("");
       setTeamId("");

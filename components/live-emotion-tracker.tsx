@@ -56,12 +56,15 @@ export function LiveEmotionTracker({
     // Connect to backend Socket.IO server
     if (!socketRef.current) {
       // Ganti URL di bawah sesuai backend Anda
-      socketRef.current = io("http://127.0.0.1:5000", {
-        transports: ["websocket"],
-        query: {
-          token: localStorage.getItem("access_token") || "",
-        },
-      });
+      socketRef.current = io(
+        "https://scrummood-be-production.up.railway.app/",
+        {
+          transports: ["websocket"],
+          query: {
+            token: localStorage.getItem("access_token") || "",
+          },
+        }
+      );
     }
     const socket = socketRef.current;
 

@@ -77,33 +77,42 @@ export default function LiveMeeting({ sessionId, userName }: LiveMeetingProps) {
       content: chatInput,
     });
     // Send emotion submission to backend
-    await fetchWithAuth("http://127.0.0.1:5000/api/emotions/submit", {
-      method: "POST",
-      body: JSON.stringify({
-        session_id: sessionId,
-        source: "text",
-        content: chatInput,
-      }),
-    });
+    await fetchWithAuth(
+      "https://scrummood-be-production.up.railway.app/api/emotions/submit",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionId,
+          source: "text",
+          content: chatInput,
+        }),
+      }
+    );
     setChatInput("");
   };
 
   // Trigger AI suggestions every 30s or via button
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchWithAuth("http://127.0.0.1:5000/api/suggestions/generate", {
-        method: "POST",
-        body: JSON.stringify({ session_id: sessionId }),
-      });
+      fetchWithAuth(
+        "https://scrummood-be-production.up.railway.app/api/suggestions/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({ session_id: sessionId }),
+        }
+      );
     }, 30000);
     return () => clearInterval(interval);
   }, [sessionId]);
 
   const handleManualSuggestion = async () => {
-    await fetchWithAuth("http://127.0.0.1:5000/api/suggestions/generate", {
-      method: "POST",
-      body: JSON.stringify({ session_id: sessionId }),
-    });
+    await fetchWithAuth(
+      "https://scrummood-be-production.up.railway.app/api/suggestions/generate",
+      {
+        method: "POST",
+        body: JSON.stringify({ session_id: sessionId }),
+      }
+    );
   };
 
   return (
