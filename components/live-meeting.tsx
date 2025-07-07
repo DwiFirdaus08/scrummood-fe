@@ -37,7 +37,8 @@ export default function LiveMeeting({ sessionId, userName }: LiveMeetingProps) {
       typeof window !== "undefined"
         ? localStorage.getItem("access_token")
         : null;
-    const socket = io("http://localhost:8088", {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_IO_URL || "http://localhost:8088";
+    const socket = io(socketUrl, {
       transports: ["websocket"],
       query: { token },
     });
