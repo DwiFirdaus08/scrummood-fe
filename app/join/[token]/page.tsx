@@ -8,7 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import React from "react";
 
-export default function JoinSessionPage({ params }: { params: { token: string } }) {
+export default function JoinSessionPage({
+  params,
+}: {
+  params: { token: string };
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -17,7 +21,10 @@ export default function JoinSessionPage({ params }: { params: { token: string } 
 
   // Next.js 14+ param unwrap (future proof)
   // @ts-ignore
-  const usableParams: any = typeof params === "object" && params !== null && "then" in params ? React.use(params) : params;
+  const usableParams: any =
+    typeof params === "object" && params !== null && "then" in params
+      ? React.use(params)
+      : params;
   const joinToken = usableParams.token;
 
   useEffect(() => {
@@ -30,7 +37,10 @@ export default function JoinSessionPage({ params }: { params: { token: string } 
         );
         setSession(res.session);
       } catch (e: any) {
-        setError(e.message || "Gagal mengambil data sesi atau Anda tidak berhak mengakses sesi ini.");
+        setError(
+          e.message ||
+            "Gagal mengambil data sesi atau Anda tidak berhak mengakses sesi ini."
+        );
       } finally {
         setLoading(false);
       }
@@ -61,7 +71,9 @@ export default function JoinSessionPage({ params }: { params: { token: string } 
       </CardHeader>
       <CardContent>
         <div className="mb-2 font-bold">{session.title}</div>
-        <div>Waktu Mulai: {new Date(session.scheduled_start).toLocaleString()}</div>
+        <div>
+          Waktu Mulai: {new Date(session.scheduled_start).toLocaleString()}
+        </div>
         <div>Durasi: {session.scheduled_duration} menit</div>
         <div className="mt-4">
           <Button

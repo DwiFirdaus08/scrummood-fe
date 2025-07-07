@@ -217,21 +217,22 @@ export default function Dashboard() {
       angry: 0.1,
     },
   ];
-  const chartData = (hasEmotionData
-    ? combinedEmotionTrend
-    : realtimeEmotionTrend.length > 0
-    ? realtimeEmotionTrend.map((e) => ({
-        date: new Date(e.timestamp).toISOString(),
-        happy: e.happy ?? 0,
-        neutral: e.neutral ?? 0,
-        stressed:
-          typeof e.stressed === "number"
-            ? e.stressed
-            : ((e.fearful ?? 0) + (e.disgusted ?? 0)) / 2,
-        sad: e.sad ?? 0,
-        angry: e.angry ?? 0,
-      }))
-    : dummyChartData
+  const chartData = (
+    hasEmotionData
+      ? combinedEmotionTrend
+      : realtimeEmotionTrend.length > 0
+      ? realtimeEmotionTrend.map((e) => ({
+          date: new Date(e.timestamp).toISOString(),
+          happy: e.happy ?? 0,
+          neutral: e.neutral ?? 0,
+          stressed:
+            typeof e.stressed === "number"
+              ? e.stressed
+              : ((e.fearful ?? 0) + (e.disgusted ?? 0)) / 2,
+          sad: e.sad ?? 0,
+          angry: e.angry ?? 0,
+        }))
+      : dummyChartData
   ).map(fillEmotionKeys);
 
   // Debug: log chartData to verify structure

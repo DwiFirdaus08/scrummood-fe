@@ -82,7 +82,9 @@ export default function ScrumSchedulePage() {
     try {
       // Hitung offset timezone user dalam menit
       const tzOffset = -new Date().getTimezoneOffset();
-      const res = await fetchWithAuth(`/api/sessions/today?tz_offset=${tzOffset}`);
+      const res = await fetchWithAuth(
+        `/api/sessions/today?tz_offset=${tzOffset}`
+      );
       setUpcomingSessions(res.sessions || []);
     } catch {
       setUpcomingSessions([]);
@@ -108,14 +110,17 @@ export default function ScrumSchedulePage() {
     try {
       // Convert scheduled_start to ISO string with offset
       const scheduledStartISO = toLocalISOString(form.scheduled_start);
-      const res = await fetchWithAuth("http://127.0.0.1:5000/api/sessions/create", {
-        method: "POST",
-        body: JSON.stringify({
-          title: form.title,
-          scheduled_start: scheduledStartISO,
-          scheduled_duration: Number(form.scheduled_duration),
-        }),
-      });
+      const res = await fetchWithAuth(
+        "http://127.0.0.1:5000/api/sessions/create",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title: form.title,
+            scheduled_start: scheduledStartISO,
+            scheduled_duration: Number(form.scheduled_duration),
+          }),
+        }
+      );
       setSuccess("Sesi berhasil dibuat!");
       setForm({ title: "", scheduled_start: "", scheduled_duration: "15" });
       if (res.session && res.session.id) {
@@ -174,7 +179,8 @@ export default function ScrumSchedulePage() {
                 ) : (
                   (() => {
                     const active = upcomingSessions.find(
-                      (s: any) => s.status === "ACTIVE" || s.status === "IN_PROGRESS"
+                      (s: any) =>
+                        s.status === "ACTIVE" || s.status === "IN_PROGRESS"
                     );
                     if (!active) {
                       return (
@@ -192,10 +198,12 @@ export default function ScrumSchedulePage() {
                             </h3>
                             <p className="text-sm text-green-700">
                               Dimulai pada{" "}
-                              {new Date(active.scheduled_start).toLocaleTimeString(
-                                "id-ID",
-                                { hour: "2-digit", minute: "2-digit" }
-                              )}{" "}
+                              {new Date(
+                                active.scheduled_start
+                              ).toLocaleTimeString("id-ID", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}{" "}
                               • {active.scheduled_duration} menit
                             </p>
                           </div>
@@ -379,7 +387,8 @@ export default function ScrumSchedulePage() {
                             navigator.clipboard.writeText(joinLink);
                             toast({
                               title: "Link berhasil disalin!",
-                              description: "Undangan sesi telah disalin ke clipboard.",
+                              description:
+                                "Undangan sesi telah disalin ke clipboard.",
                             });
                           }}
                         >

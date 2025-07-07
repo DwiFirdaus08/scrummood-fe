@@ -1,74 +1,74 @@
-"use client"
+"use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Mic, MicOff, Video, VideoOff, MoreHorizontal } from "lucide-react"
-import type React from "react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Mic, MicOff, Video, VideoOff, MoreHorizontal } from "lucide-react";
+import type React from "react";
 
 export type Participant = {
-  id: number | string
-  name: string
-  initials: string
-  avatar: string
-  role: string
-  isSpeaking: boolean
-  isMuted: boolean
-  isVideoOn: boolean
-  isScreenSharing: boolean
-  joinTime: string
-  dominantEmotion: "happy" | "neutral" | "stressed" | "sad" | "angry"
-}
+  id: number | string;
+  name: string;
+  initials: string;
+  avatar: string;
+  role: string;
+  isSpeaking: boolean;
+  isMuted: boolean;
+  isVideoOn: boolean;
+  isScreenSharing: boolean;
+  joinTime: string;
+  dominantEmotion: "happy" | "neutral" | "stressed" | "sad" | "angry";
+};
 
 interface LiveParticipantsProps {
-  participants: Participant[]
+  participants: Participant[];
 }
 
 export function LiveParticipants({ participants }: LiveParticipantsProps) {
   const getEmotionEmoji = (emotion: Participant["dominantEmotion"]) => {
     switch (emotion) {
       case "happy":
-        return "😊"
+        return "😊";
       case "neutral":
-        return "😐"
+        return "😐";
       case "stressed":
-        return "😓"
+        return "😓";
       case "sad":
-        return "😔"
+        return "😔";
       case "angry":
-        return "😠"
+        return "😠";
     }
-  }
+  };
 
   const getEmotionColor = (emotion: Participant["dominantEmotion"]) => {
     switch (emotion) {
       case "happy":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800";
       case "neutral":
-        return "bg-blue-100 text-blue-800"
+        return "bg-blue-100 text-blue-800";
       case "stressed":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800";
       case "sad":
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800";
       case "angry":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800";
     }
-  }
+  };
 
   const getEmotionLabel = (emotion: Participant["dominantEmotion"]) => {
     switch (emotion) {
       case "happy":
-        return "Senang"
+        return "Senang";
       case "neutral":
-        return "Netral"
+        return "Netral";
       case "stressed":
-        return "Stres"
+        return "Stres";
       case "sad":
-        return "Sedih"
+        return "Sedih";
       case "angry":
-        return "Marah"
+        return "Marah";
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
@@ -81,11 +81,17 @@ export function LiveParticipants({ participants }: LiveParticipantsProps) {
 
       <div className="space-y-3">
         {participants.map((participant) => (
-          <div key={participant.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <div
+            key={participant.id}
+            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+          >
             <div className="flex items-center space-x-3">
               <div className="relative">
                 <Avatar>
-                  <AvatarImage src={participant.avatar || "/placeholder.svg"} alt={participant.name} />
+                  <AvatarImage
+                    src={participant.avatar || "/placeholder.svg"}
+                    alt={participant.name}
+                  />
                   <AvatarFallback>{participant.initials}</AvatarFallback>
                 </Avatar>
                 {participant.isSpeaking && (
@@ -112,10 +118,16 @@ export function LiveParticipants({ participants }: LiveParticipantsProps) {
 
             <div className="flex items-center space-x-2">
               <div
-                className={`text-xs px-1.5 py-0.5 rounded-full flex items-center ${getEmotionColor(participant.dominantEmotion)}`}
+                className={`text-xs px-1.5 py-0.5 rounded-full flex items-center ${getEmotionColor(
+                  participant.dominantEmotion
+                )}`}
               >
-                <span className="mr-1">{getEmotionEmoji(participant.dominantEmotion)}</span>
-                <span className="capitalize">{getEmotionLabel(participant.dominantEmotion)}</span>
+                <span className="mr-1">
+                  {getEmotionEmoji(participant.dominantEmotion)}
+                </span>
+                <span className="capitalize">
+                  {getEmotionLabel(participant.dominantEmotion)}
+                </span>
               </div>
 
               {participant.isMuted ? (
@@ -138,5 +150,5 @@ export function LiveParticipants({ participants }: LiveParticipantsProps) {
         ))}
       </div>
     </div>
-  )
+  );
 }

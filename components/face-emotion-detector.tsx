@@ -208,7 +208,8 @@ export function FaceEmotionDetector({
     if (!videoRef.current || !canvasRef.current) return;
     const faceapi = faceApiRef.current;
     // Cek model loaded sebelum deteksi
-    if (!faceapi ||
+    if (
+      !faceapi ||
       !faceapi.nets.ssdMobilenetv1.isLoaded ||
       !faceapi.nets.faceLandmark68Net.isLoaded ||
       !faceapi.nets.faceExpressionNet.isLoaded

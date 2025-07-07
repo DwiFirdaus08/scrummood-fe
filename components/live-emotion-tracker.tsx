@@ -1,43 +1,55 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Brain, Users, TrendingUp, Clock } from "lucide-react"
-import io, { Socket } from "socket.io-client"
+import { useEffect, useRef, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Brain, Users, TrendingUp, Clock } from "lucide-react";
+import io, { Socket } from "socket.io-client";
 
 export interface EmotionData {
-  happy: number
-  sad: number
-  angry: number
-  fearful: number
-  disgusted: number
-  surprised: number
-  neutral: number
+  happy: number;
+  sad: number;
+  angry: number;
+  fearful: number;
+  disgusted: number;
+  surprised: number;
+  neutral: number;
 }
 
 interface TeamEmotionMember {
-  id: string
-  name: string
-  avatar: string
-  emotions: EmotionData
-  faceDetected: boolean
-  isCurrentUser: boolean
+  id: string;
+  name: string;
+  avatar: string;
+  emotions: EmotionData;
+  faceDetected: boolean;
+  isCurrentUser: boolean;
 }
 
 interface LiveEmotionTrackerProps {
-  currentUserEmotions?: EmotionData
-  currentUserFaceDetected?: boolean
-  teamEmotions?: TeamEmotionMember[] // <-- Accept real team data from parent
-  currentUserName?: string // <-- For correct display of current user name
+  currentUserEmotions?: EmotionData;
+  currentUserFaceDetected?: boolean;
+  teamEmotions?: TeamEmotionMember[]; // <-- Accept real team data from parent
+  currentUserName?: string; // <-- For correct display of current user name
 }
 
-export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetected, teamEmotions = [], currentUserName }: LiveEmotionTrackerProps) {
-  const socketRef = useRef<Socket | null>(null)
+export function LiveEmotionTracker({
+  currentUserEmotions,
+  currentUserFaceDetected,
+  teamEmotions = [],
+  currentUserName,
+}: LiveEmotionTrackerProps) {
+  const socketRef = useRef<Socket | null>(null);
   // --- NEW: Local state for real-time team emotions ---
-  const [liveTeamEmotions, setLiveTeamEmotions] = useState<TeamEmotionMember[]>(teamEmotions)
+  const [liveTeamEmotions, setLiveTeamEmotions] =
+    useState<TeamEmotionMember[]>(teamEmotions);
 
   // --- SOCKET.IO REAL-TIME EMOTION TRACKING ---
   useEffect(() => {
@@ -49,20 +61,20 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
         query: {
           token: localStorage.getItem("access_token") || "",
         },
-      })
+      });
     }
-    const socket = socketRef.current
+    const socket = socketRef.current;
 
     // Join session room (ganti session_id sesuai kebutuhan)
-    const sessionId = localStorage.getItem("current_session_id") || "1"
-    socket.emit("join_session", { session_id: sessionId })
+    const sessionId = localStorage.getItem("current_session_id") || "1";
+    socket.emit("join_session", { session_id: sessionId });
 
     // Listen for real-time emotion updates
     socket.on("emotion_update", (payload) => {
       // payload: { session_id, user_id, emotions, face_detected, timestamp }
       setLiveTeamEmotions((prev) => {
         // Find if user already exists
-        const idx = prev.findIndex((m) => m.id === payload.user_id)
+        const idx = prev.findIndex((m) => m.id === payload.user_id);
         const updatedMember: TeamEmotionMember = {
           id: payload.user_id,
           name: payload.user_id, // Optionally replace with real name if available
@@ -77,34 +89,36 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
             neutral: payload.emotions.neutral ?? 0,
           },
           faceDetected: payload.face_detected,
-          isCurrentUser: payload.user_id === (localStorage.getItem("user_id") || "anonymous"),
-        }
+          isCurrentUser:
+            payload.user_id ===
+            (localStorage.getItem("user_id") || "anonymous"),
+        };
         if (idx !== -1) {
           // Update existing
-          const copy = [...prev]
-          copy[idx] = updatedMember
-          return copy
+          const copy = [...prev];
+          copy[idx] = updatedMember;
+          return copy;
         } else {
           // Add new
-          return [...prev, updatedMember]
+          return [...prev, updatedMember];
         }
-      })
-    })
+      });
+    });
 
     // Listen for user join/leave events (opsional, update presence)
     socket.on("user_joined", (payload) => {
       // Tambahkan user ke teamEmotions jika belum ada
       // TODO: Handle user joined
-    })
+    });
     socket.on("user_left", (payload) => {
       // TODO: Handle user left
-    })
+    });
 
     return () => {
-      socket.emit("leave_session", { session_id: sessionId })
-      socket.disconnect()
-    }
-  }, [])
+      socket.emit("leave_session", { session_id: sessionId });
+      socket.disconnect();
+    };
+  }, []);
 
   // Emit real-time emotion to backend for dashboard chart
   useEffect(() => {
@@ -113,10 +127,12 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
       const sessionId = localStorage.getItem("current_session_id") || "1";
       const userId = localStorage.getItem("user_id") || "anonymous";
       // Mapping: chart butuh 'stressed', ambil dari fearful+disgusted jika tidak ada
-      const { happy, neutral, sad, angry, fearful, disgusted } = currentUserEmotions;
-      const stressed = (typeof (currentUserEmotions as any).stressed === "number")
-        ? (currentUserEmotions as any).stressed
-        : ((fearful ?? 0) + (disgusted ?? 0)) / 2;
+      const { happy, neutral, sad, angry, fearful, disgusted } =
+        currentUserEmotions;
+      const stressed =
+        typeof (currentUserEmotions as any).stressed === "number"
+          ? (currentUserEmotions as any).stressed
+          : ((fearful ?? 0) + (disgusted ?? 0)) / 2;
       socketRef.current.emit("emotion_update", {
         session_id: sessionId,
         user_id: userId,
@@ -131,7 +147,7 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
         timestamp: Date.now(),
       });
     }
-  }, [currentUserEmotions, currentUserFaceDetected])
+  }, [currentUserEmotions, currentUserFaceDetected]);
 
   const getEmotionColor = (emotion: string) => {
     const colors = {
@@ -142,9 +158,9 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
       angry: "bg-red-500",
       fearful: "bg-orange-500",
       disgusted: "bg-yellow-500",
-    }
-    return colors[emotion as keyof typeof colors] || "bg-gray-400"
-  }
+    };
+    return colors[emotion as keyof typeof colors] || "bg-gray-400";
+  };
 
   const getEmotionIcon = (emotion: string) => {
     const icons = {
@@ -155,45 +171,84 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
       angry: "😠",
       fearful: "😨",
       disgusted: "🤢",
-    }
-    return icons[emotion as keyof typeof icons] || "😐"
-  }
+    };
+    return icons[emotion as keyof typeof icons] || "😐";
+  };
 
   const getDominantEmotion = (emotions: EmotionData) => {
     return Object.entries(emotions).reduce((a, b) =>
-      emotions[a[0] as keyof EmotionData] > emotions[b[0] as keyof EmotionData] ? a : b,
-    )
-  }
+      emotions[a[0] as keyof EmotionData] > emotions[b[0] as keyof EmotionData]
+        ? a
+        : b
+    );
+  };
 
   // Calculate team average and active count, fallback to current user if needed
-  const activeMembers = liveTeamEmotions.filter((member) => member.faceDetected)
-  const hasCurrentUserActive = !liveTeamEmotions.length && currentUserFaceDetected && currentUserEmotions
-  const teamAverage = activeMembers.length > 0
-    ? (() => {
-        const avg: EmotionData = { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 0 }
-        activeMembers.forEach((member) => {
+  const activeMembers = liveTeamEmotions.filter(
+    (member) => member.faceDetected
+  );
+  const hasCurrentUserActive =
+    !liveTeamEmotions.length && currentUserFaceDetected && currentUserEmotions;
+  const teamAverage =
+    activeMembers.length > 0
+      ? (() => {
+          const avg: EmotionData = {
+            happy: 0,
+            sad: 0,
+            angry: 0,
+            fearful: 0,
+            disgusted: 0,
+            surprised: 0,
+            neutral: 0,
+          };
+          activeMembers.forEach((member) => {
+            Object.keys(avg).forEach((emotion) => {
+              avg[emotion as keyof EmotionData] +=
+                member.emotions[emotion as keyof EmotionData];
+            });
+          });
           Object.keys(avg).forEach((emotion) => {
-            avg[emotion as keyof EmotionData] += member.emotions[emotion as keyof EmotionData]
-          })
-        })
-        Object.keys(avg).forEach((emotion) => {
-          avg[emotion as keyof EmotionData] /= activeMembers.length
-        })
-        return avg
-      })()
-    : (hasCurrentUserActive ? currentUserEmotions : null)
-  const activeMembersCount = activeMembers.length > 0 ? activeMembers.length : (hasCurrentUserActive ? 1 : 0)
+            avg[emotion as keyof EmotionData] /= activeMembers.length;
+          });
+          return avg;
+        })()
+      : hasCurrentUserActive
+      ? currentUserEmotions
+      : null;
+  const activeMembersCount =
+    activeMembers.length > 0
+      ? activeMembers.length
+      : hasCurrentUserActive
+      ? 1
+      : 0;
 
-  const displayTeam = liveTeamEmotions.length > 0
-    ? liveTeamEmotions
-    : (currentUserName ? [{
-      id: "current-user",
-      name: currentUserName,
-      avatar: currentUserName.split(" ").map((n) => n[0]).join("") || "U",
-      emotions: currentUserEmotions || { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 1 },
-      faceDetected: !!currentUserFaceDetected,
-      isCurrentUser: true,
-    }] : [])
+  const displayTeam =
+    liveTeamEmotions.length > 0
+      ? liveTeamEmotions
+      : currentUserName
+      ? [
+          {
+            id: "current-user",
+            name: currentUserName,
+            avatar:
+              currentUserName
+                .split(" ")
+                .map((n) => n[0])
+                .join("") || "U",
+            emotions: currentUserEmotions || {
+              happy: 0,
+              sad: 0,
+              angry: 0,
+              fearful: 0,
+              disgusted: 0,
+              surprised: 0,
+              neutral: 1,
+            },
+            faceDetected: !!currentUserFaceDetected,
+            isCurrentUser: true,
+          },
+        ]
+      : [];
 
   return (
     <div className="space-y-4">
@@ -206,7 +261,9 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
                 <Brain className="h-5 w-5 text-purple-600" />
                 Analisis Emosi Langsung
               </CardTitle>
-              <CardDescription>Deteksi emosi AI secara waktu nyata</CardDescription>
+              <CardDescription>
+                Deteksi emosi AI secara waktu nyata
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-green-50 text-green-700">
@@ -221,25 +278,35 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
           </div>
         </CardHeader>
         <CardContent>
-          {(activeMembersCount > 0 || currentUserFaceDetected) ? (
+          {activeMembersCount > 0 || currentUserFaceDetected ? (
             <div className="space-y-3">
               <h4 className="font-medium text-sm">Keadaan Emosi Tim</h4>
               <div className="grid grid-cols-2 gap-3">
-                {teamAverage && Object.entries(teamAverage)
-                  .sort(([, a], [, b]) => b - a)
-                  .slice(0, 4)
-                  .map(([emotion, value]) => (
-                    <div key={emotion} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{getEmotionIcon(emotion)}</span>
-                        <span className="text-sm font-medium capitalize">{emotion}</span>
+                {teamAverage &&
+                  Object.entries(teamAverage)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 4)
+                    .map(([emotion, value]) => (
+                      <div
+                        key={emotion}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">
+                            {getEmotionIcon(emotion)}
+                          </span>
+                          <span className="text-sm font-medium capitalize">
+                            {emotion}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Progress value={value * 100} className="w-16 h-2" />
+                          <span className="text-xs font-medium w-8">
+                            {Math.round(value * 100)}%
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Progress value={value * 100} className="w-16 h-2" />
-                        <span className="text-xs font-medium w-8">{Math.round(value * 100)}%</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
               </div>
             </div>
           ) : (
@@ -254,35 +321,48 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
       {/* Individual Members */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {displayTeam.map((member) => {
-          const dominantEmotion = getDominantEmotion(member.emotions)
+          const dominantEmotion = getDominantEmotion(member.emotions);
           return (
             <Card
               key={member.id}
-              className={`${member.isCurrentUser ? "border-2 border-purple-200 bg-purple-50/30" : ""} ${
-                !member.faceDetected ? "opacity-60" : ""
-              }`}
+              className={`${
+                member.isCurrentUser
+                  ? "border-2 border-purple-200 bg-purple-50/30"
+                  : ""
+              } ${!member.faceDetected ? "opacity-60" : ""}`}
             >
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
-                      <AvatarFallback className="text-xs">{member.avatar}</AvatarFallback>
+                      <AvatarFallback className="text-xs">
+                        {member.avatar}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
                       <h4 className="font-medium text-sm">{member.name}</h4>
                       <div className="flex items-center gap-1">
                         {member.faceDetected ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                          <Badge
+                            variant="outline"
+                            className="bg-green-50 text-green-700 text-xs"
+                          >
                             <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
                             AI Aktif
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-500 text-xs">
+                          <Badge
+                            variant="outline"
+                            className="bg-gray-50 text-gray-500 text-xs"
+                          >
                             Tidak Ada Wajah
                           </Badge>
                         )}
                         {member.isCurrentUser && (
-                          <Badge variant="outline" className="bg-purple-50 text-purple-700 text-xs">
+                          <Badge
+                            variant="outline"
+                            className="bg-purple-50 text-purple-700 text-xs"
+                          >
                             Anda
                           </Badge>
                         )}
@@ -291,8 +371,12 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
                   </div>
                   {member.faceDetected && (
                     <div className="text-right">
-                      <div className="text-lg">{getEmotionIcon(dominantEmotion[0])}</div>
-                      <div className="text-xs text-muted-foreground">{Math.round(dominantEmotion[1] * 100)}%</div>
+                      <div className="text-lg">
+                        {getEmotionIcon(dominantEmotion[0])}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {Math.round(dominantEmotion[1] * 100)}%
+                      </div>
                     </div>
                   )}
                 </div>
@@ -304,19 +388,30 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
                       .sort(([, a], [, b]) => b - a)
                       .slice(0, 3)
                       .map(([emotion, value]) => (
-                        <div key={emotion} className="flex items-center justify-between">
+                        <div
+                          key={emotion}
+                          className="flex items-center justify-between"
+                        >
                           <div className="flex items-center gap-2">
-                            <span className="text-sm">{getEmotionIcon(emotion)}</span>
-                            <span className="text-xs capitalize">{emotion}</span>
+                            <span className="text-sm">
+                              {getEmotionIcon(emotion)}
+                            </span>
+                            <span className="text-xs capitalize">
+                              {emotion}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="w-12 bg-gray-200 rounded-full h-1.5">
                               <div
-                                className={`${getEmotionColor(emotion)} h-1.5 rounded-full transition-all duration-300`}
+                                className={`${getEmotionColor(
+                                  emotion
+                                )} h-1.5 rounded-full transition-all duration-300`}
                                 style={{ width: `${value * 100}%` }}
                               ></div>
                             </div>
-                            <span className="text-xs w-6 text-right">{Math.round(value * 100)}%</span>
+                            <span className="text-xs w-6 text-right">
+                              {Math.round(value * 100)}%
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -328,7 +423,7 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
                 )}
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -342,25 +437,32 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {(activeMembersCount > 0 || currentUserFaceDetected) ? (
+            {activeMembersCount > 0 || currentUserFaceDetected ? (
               <>
                 <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-                  🤖 {activeMembersCount > 0 ? activeMembersCount : 1} anggota tim sedang dipantau oleh deteksi emosi AI
+                  🤖 {activeMembersCount > 0 ? activeMembersCount : 1} anggota
+                  tim sedang dipantau oleh deteksi emosi AI
                 </div>
                 {teamAverage && teamAverage.happy > 0.6 && (
                   <div className="p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
-                    ✨ Mood tim sangat positif! Waktu yang tepat untuk diskusi kreatif.
+                    ✨ Mood tim sangat positif! Waktu yang tepat untuk diskusi
+                    kreatif.
                   </div>
                 )}
                 {teamAverage && teamAverage.sad > 0.3 && (
                   <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
-                    ⚠️ Beberapa anggota tim tampak stres. Pertimbangkan untuk istirahat sejenak.
+                    ⚠️ Beberapa anggota tim tampak stres. Pertimbangkan untuk
+                    istirahat sejenak.
                   </div>
                 )}
                 {currentUserFaceDetected && currentUserEmotions && (
                   <div className="p-2 bg-purple-50 border border-purple-200 rounded text-xs text-purple-700">
-                    👤 Emosi Anda: {getDominantEmotion(currentUserEmotions)[0]} (
-                    {Math.round(getDominantEmotion(currentUserEmotions)[1] * 100)}%)
+                    👤 Emosi Anda: {getDominantEmotion(currentUserEmotions)[0]}{" "}
+                    (
+                    {Math.round(
+                      getDominantEmotion(currentUserEmotions)[1] * 100
+                    )}
+                    %)
                   </div>
                 )}
               </>
@@ -373,5 +475,5 @@ export function LiveEmotionTracker({ currentUserEmotions, currentUserFaceDetecte
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

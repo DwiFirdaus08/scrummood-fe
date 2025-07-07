@@ -19,7 +19,9 @@ interface EmotionSummary {
 
 export default function SessionHistoryList() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null);
+  const [selectedSession, setSelectedSession] = useState<SessionItem | null>(
+    null
+  );
   const [summary, setSummary] = useState<EmotionSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -65,12 +67,15 @@ export default function SessionHistoryList() {
               {sessions.map((s) => (
                 <li
                   key={s.id}
-                  className={`py-2 cursor-pointer hover:bg-gray-100 rounded ${selectedSession?.id === s.id ? "bg-teal-50" : ""}`}
+                  className={`py-2 cursor-pointer hover:bg-gray-100 rounded ${
+                    selectedSession?.id === s.id ? "bg-teal-50" : ""
+                  }`}
                   onClick={() => handleSessionClick(s)}
                 >
                   <div className="font-medium">{s.title}</div>
                   <div className="text-xs text-gray-500">
-                    {new Date(s.scheduled_start).toLocaleString()} • {s.scheduled_duration} menit
+                    {new Date(s.scheduled_start).toLocaleString()} •{" "}
+                    {s.scheduled_duration} menit
                   </div>
                 </li>
               ))}
@@ -90,24 +95,32 @@ export default function SessionHistoryList() {
           {!summaryLoading && summary && (
             <div>
               <div className="mb-2">
-                <span className="font-semibold">Dominan:</span> {summary.dominant_emotion}
+                <span className="font-semibold">Dominan:</span>{" "}
+                {summary.dominant_emotion}
               </div>
               <div className="mb-2">
                 <span className="font-semibold">Distribusi Emosi:</span>
                 <ul className="ml-4 list-disc">
-                  {Object.entries(summary.emotion_distribution).map(([emo, pct]) => (
-                    <li key={emo}>
-                      {emo}: {pct}%
-                    </li>
-                  ))}
+                  {Object.entries(summary.emotion_distribution).map(
+                    ([emo, pct]) => (
+                      <li key={emo}>
+                        {emo}: {pct}%
+                      </li>
+                    )
+                  )}
                 </ul>
               </div>
               <div>
-                <span className="font-semibold">Rata-rata Intensitas:</span> {summary.average_intensity}
+                <span className="font-semibold">Rata-rata Intensitas:</span>{" "}
+                {summary.average_intensity}
               </div>
             </div>
           )}
-          {!selectedSession && <div className="text-gray-400">Klik sesi untuk melihat ringkasan emosi.</div>}
+          {!selectedSession && (
+            <div className="text-gray-400">
+              Klik sesi untuk melihat ringkasan emosi.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

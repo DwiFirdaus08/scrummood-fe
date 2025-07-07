@@ -33,7 +33,10 @@ export default function LiveMeeting({ sessionId, userName }: LiveMeetingProps) {
 
   // Socket.IO setup
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token")
+        : null;
     const socket = io("http://localhost:8088", {
       transports: ["websocket"],
       query: { token },
@@ -115,7 +118,9 @@ export default function LiveMeeting({ sessionId, userName }: LiveMeetingProps) {
             {chatMessages.map((msg, idx) => (
               <div key={idx} className="mb-2">
                 <span className="font-semibold">{msg.user}:</span> {msg.content}
-                <span className="ml-2 text-xs text-gray-400">{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                <span className="ml-2 text-xs text-gray-400">
+                  {new Date(msg.timestamp).toLocaleTimeString()}
+                </span>
               </div>
             ))}
           </div>
@@ -136,10 +141,13 @@ export default function LiveMeeting({ sessionId, userName }: LiveMeetingProps) {
         </CardHeader>
         <CardContent>
           <div className="mb-4">
-            {Object.entries(emotions).length === 0 && <div>Belum ada data emosi.</div>}
+            {Object.entries(emotions).length === 0 && (
+              <div>Belum ada data emosi.</div>
+            )}
             {Object.entries(emotions).map(([user, emotion]) => (
               <div key={user} className="mb-1">
-                <span className="font-semibold">{user}:</span> <span>{emotion}</span>
+                <span className="font-semibold">{user}:</span>{" "}
+                <span>{emotion}</span>
               </div>
             ))}
           </div>

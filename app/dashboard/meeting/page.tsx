@@ -1,12 +1,18 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import {
   Mic,
   MicOff,
@@ -26,131 +32,144 @@ import {
   Volume2,
   Brain,
   Waves,
-} from "lucide-react"
-import { MeetingChat, Message } from "@/components/meeting-chat"
-import { LiveParticipants, Participant as BaseParticipant } from "@/components/live-participants"
+} from "lucide-react";
+import { MeetingChat, Message } from "@/components/meeting-chat";
+import {
+  LiveParticipants,
+  Participant as BaseParticipant,
+} from "@/components/live-participants";
 
 // Extend Participant type to include optional 'emotions' property
-type Participant = BaseParticipant & { emotions?: EmotionData }
-import { MeetingAgenda, AgendaItem } from "@/components/meeting-agenda"
-import { VoiceEmotionData } from "@/components/voice-emotion-detector"
-import { EmotionData } from "@/components/face-emotion-detector"
-import { LiveEmotionTracker } from "@/components/live-emotion-tracker"
-import io from "socket.io-client"
-import { useRouter, useSearchParams } from "next/navigation"
-import { FaceEmotionDetector } from "@/components/face-emotion-detector"
-import { VoiceEmotionDetector } from "@/components/voice-emotion-detector"
+type Participant = BaseParticipant & { emotions?: EmotionData };
+import { MeetingAgenda, AgendaItem } from "@/components/meeting-agenda";
+import { VoiceEmotionData } from "@/components/voice-emotion-detector";
+import { EmotionData } from "@/components/face-emotion-detector";
+import { LiveEmotionTracker } from "@/components/live-emotion-tracker";
+import io from "socket.io-client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FaceEmotionDetector } from "@/components/face-emotion-detector";
+import { VoiceEmotionDetector } from "@/components/voice-emotion-detector";
 
-type ChatMessage = Message // If you have a different structure, map it accordingly
+type ChatMessage = Message; // If you have a different structure, map it accordingly
 
 export default function MeetingPage() {
-  const [isMicOn, setIsMicOn] = useState(false)
-  const [isCameraOn, setIsCameraOn] = useState(false)
-  const [isScreenSharing, setIsScreenSharing] = useState(false)
-  const [elapsedTime, setElapsedTime] = useState(0)
-  const [showAlert, setShowAlert] = useState(false)
-  const [cameraError, setCameraError] = useState<string | null>(null)
-  const [audioError, setAudioError] = useState<string | null>(null)
-  const [cameraStatus, setCameraStatus] = useState<string>("")
-  const [audioStatus, setAudioStatus] = useState<string>("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [audioLevel, setAudioLevel] = useState(0)
-  const [isAudioLoading, setIsAudioLoading] = useState(false)
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [showAlert, setShowAlert] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [cameraStatus, setCameraStatus] = useState<string>("");
+  const [audioStatus, setAudioStatus] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
 
   // Face detection states
-  const [currentFaceEmotions, setCurrentFaceEmotions] = useState<EmotionData | undefined>()
-  const [faceDetected, setFaceDetected] = useState(false)
+  const [currentFaceEmotions, setCurrentFaceEmotions] = useState<
+    EmotionData | undefined
+  >();
+  const [faceDetected, setFaceDetected] = useState(false);
 
   // Voice detection states
-  const [currentVoiceEmotion, setCurrentVoiceEmotion] = useState<VoiceEmotionData | undefined>()
-  const [voiceDetectionActive, setVoiceDetectionActive] = useState(false)
-  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [currentVoiceEmotion, setCurrentVoiceEmotion] = useState<
+    VoiceEmotionData | undefined
+  >();
+  const [voiceDetectionActive, setVoiceDetectionActive] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Combined emotions (face + voice)
-  const [combinedEmotions, setCombinedEmotions] = useState<EmotionData | undefined>()
+  const [combinedEmotions, setCombinedEmotions] = useState<
+    EmotionData | undefined
+  >();
 
   // Add real-time state
-  const [participants, setParticipants] = useState<Participant[]>([])
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [teamEmotions, setTeamEmotions] = useState<any>(undefined)
-  const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
-  const [aiInsights, setAiInsights] = useState<any[]>([])
-  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [teamEmotions, setTeamEmotions] = useState<any>(undefined);
+  const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
+  const [aiInsights, setAiInsights] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   interface User {
-    id: string
-    name: string
+    id: string;
+    name: string;
   }
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(null);
   // Ganti deklarasi socket agar bertipe benar
-  type SocketType = ReturnType<typeof io> | null
-  const [socket, setSocket] = useState<SocketType>(null)
+  type SocketType = ReturnType<typeof io> | null;
+  const [socket, setSocket] = useState<SocketType>(null);
 
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const joinToken = searchParams.get("token")
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const joinToken = searchParams.get("token");
 
-  const videoRef = useRef<HTMLVideoElement>(null) as React.RefObject<HTMLVideoElement>
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const localStreamRef = useRef<MediaStream | null>(null)
-  const audioStreamRef = useRef<MediaStream | null>(null)
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(
+    null
+  ) as React.RefObject<HTMLVideoElement>;
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   // Screen sharing state
-  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
 
   // Format elapsed time as mm:ss
   const formatTime = useCallback((seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }, [])
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  }, []);
 
   // Timer for meeting duration
   useEffect(() => {
     // Only run this effect once on mount
     const timer = setInterval(() => {
-      setElapsedTime((prev) => prev + 1)
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
+      setElapsedTime((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Show AI alert after 30 seconds
   useEffect(() => {
     if (elapsedTime === 30) {
-      setShowAlert(true)
+      setShowAlert(true);
     }
-  }, [elapsedTime])
+  }, [elapsedTime]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       // Cancel animation frame
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
 
       // Clean up video stream
       if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((track) => track.stop())
-        localStreamRef.current = null
+        localStreamRef.current.getTracks().forEach((track) => track.stop());
+        localStreamRef.current = null;
       }
 
       // Clean up audio stream
       if (audioStreamRef.current) {
-        audioStreamRef.current.getTracks().forEach((track) => track.stop())
-        audioStreamRef.current = null
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+        audioStreamRef.current = null;
       }
 
       // Clean up audio context
       if (audioContextRef.current) {
-        audioContextRef.current.close()
-        audioContextRef.current = null
+        audioContextRef.current.close();
+        audioContextRef.current = null;
       }
-    }
-  }, [])
+    };
+  }, []);
 
   // Memoized emotion mapping
   const emotionMapping = useMemo(
@@ -164,15 +183,15 @@ export default function MeetingPage() {
       sad: "sad" as keyof EmotionData,
       frustrated: "angry" as keyof EmotionData,
     }),
-    [],
-  )
+    []
+  );
 
   // Combine face and voice emotions with useMemo to prevent unnecessary recalculations
   const computedCombinedEmotions = useMemo(() => {
     if (currentFaceEmotions && currentVoiceEmotion) {
       // Weighted combination: 60% face, 40% voice
-      const faceWeight = 0.6
-      const voiceWeight = 0.4
+      const faceWeight = 0.6;
+      const voiceWeight = 0.4;
 
       // Convert voice emotion to emotion data format
       const voiceEmotionData: EmotionData = {
@@ -183,23 +202,40 @@ export default function MeetingPage() {
         disgusted: 0,
         surprised: 0,
         neutral: 0,
-      }
+      };
 
-      const mappedEmotion = emotionMapping[currentVoiceEmotion.emotion as keyof typeof emotionMapping] || "neutral"
-      voiceEmotionData[mappedEmotion] = currentVoiceEmotion.confidence
+      const mappedEmotion =
+        emotionMapping[
+          currentVoiceEmotion.emotion as keyof typeof emotionMapping
+        ] || "neutral";
+      voiceEmotionData[mappedEmotion] = currentVoiceEmotion.confidence;
 
       // Combine emotions
       return {
-        happy: currentFaceEmotions.happy * faceWeight + voiceEmotionData.happy * voiceWeight,
-        sad: currentFaceEmotions.sad * faceWeight + voiceEmotionData.sad * voiceWeight,
-        angry: currentFaceEmotions.angry * faceWeight + voiceEmotionData.angry * voiceWeight,
-        fearful: currentFaceEmotions.fearful * faceWeight + voiceEmotionData.fearful * voiceWeight,
-        disgusted: currentFaceEmotions.disgusted * faceWeight + voiceEmotionData.disgusted * voiceWeight,
-        surprised: currentFaceEmotions.surprised * faceWeight + voiceEmotionData.surprised * voiceWeight,
-        neutral: currentFaceEmotions.neutral * faceWeight + voiceEmotionData.neutral * voiceWeight,
-      }
+        happy:
+          currentFaceEmotions.happy * faceWeight +
+          voiceEmotionData.happy * voiceWeight,
+        sad:
+          currentFaceEmotions.sad * faceWeight +
+          voiceEmotionData.sad * voiceWeight,
+        angry:
+          currentFaceEmotions.angry * faceWeight +
+          voiceEmotionData.angry * voiceWeight,
+        fearful:
+          currentFaceEmotions.fearful * faceWeight +
+          voiceEmotionData.fearful * voiceWeight,
+        disgusted:
+          currentFaceEmotions.disgusted * faceWeight +
+          voiceEmotionData.disgusted * voiceWeight,
+        surprised:
+          currentFaceEmotions.surprised * faceWeight +
+          voiceEmotionData.surprised * voiceWeight,
+        neutral:
+          currentFaceEmotions.neutral * faceWeight +
+          voiceEmotionData.neutral * voiceWeight,
+      };
     } else if (currentFaceEmotions) {
-      return currentFaceEmotions
+      return currentFaceEmotions;
     } else if (currentVoiceEmotion) {
       // Use only voice emotion if face is not available
       const voiceOnly: EmotionData = {
@@ -210,130 +246,144 @@ export default function MeetingPage() {
         disgusted: 0,
         surprised: 0,
         neutral: 0,
-      }
+      };
 
-      const mappedEmotion = emotionMapping[currentVoiceEmotion.emotion as keyof typeof emotionMapping] || "neutral"
-      voiceOnly[mappedEmotion] = currentVoiceEmotion.confidence
+      const mappedEmotion =
+        emotionMapping[
+          currentVoiceEmotion.emotion as keyof typeof emotionMapping
+        ] || "neutral";
+      voiceOnly[mappedEmotion] = currentVoiceEmotion.confidence;
 
-      return voiceOnly
+      return voiceOnly;
     }
-    return undefined
-  }, [currentFaceEmotions, currentVoiceEmotion, emotionMapping])
+    return undefined;
+  }, [currentFaceEmotions, currentVoiceEmotion, emotionMapping]);
 
   // Update combined emotions only when computed value changes
   useEffect(() => {
-    setCombinedEmotions(computedCombinedEmotions)
-  }, [computedCombinedEmotions])
+    setCombinedEmotions(computedCombinedEmotions);
+  }, [computedCombinedEmotions]);
 
   // Memoized callback functions to prevent unnecessary re-renders
-  const handleFaceEmotionDetected = useCallback((emotions: EmotionData) => {
-    setCurrentFaceEmotions((prev) => {
-      // Only update if value actually changes (shallow compare)
-      if (!prev) return emotions
-      const keys = Object.keys(emotions) as (keyof EmotionData)[]
-      for (const key of keys) {
-        if (emotions[key] !== prev[key]) return emotions
+  const handleFaceEmotionDetected = useCallback(
+    (emotions: EmotionData) => {
+      setCurrentFaceEmotions((prev) => {
+        // Only update if value actually changes (shallow compare)
+        if (!prev) return emotions;
+        const keys = Object.keys(emotions) as (keyof EmotionData)[];
+        for (const key of keys) {
+          if (emotions[key] !== prev[key]) return emotions;
+        }
+        return prev;
+      });
+      // Emit to backend for storage (face)
+      if (socket && sessionId && user?.id) {
+        socket.emit("emotion_update", {
+          session_id: sessionId,
+          user_id: user.id,
+          emotions,
+          source: "face",
+        });
       }
-      return prev
-    })
-    // Emit to backend for storage (face)
-    if (socket && sessionId && user?.id) {
-      socket.emit("emotion_update", {
-        session_id: sessionId,
-        user_id: user.id,
-        emotions,
-        source: "face"
-      })
-    }
-  }, [socket, sessionId, user])
+    },
+    [socket, sessionId, user]
+  );
 
   const handleFaceDetected = useCallback((detected: boolean) => {
-    setFaceDetected((prev) => (prev !== detected ? detected : prev))
-  }, [])
+    setFaceDetected((prev) => (prev !== detected ? detected : prev));
+  }, []);
 
   // Handler for voice emotion detection
-  const handleVoiceEmotionDetected = useCallback((voiceEmotion: VoiceEmotionData) => {
-    setCurrentVoiceEmotion((prev: VoiceEmotionData | undefined) => voiceEmotion)
-    // Convert to EmotionData format for backend
-    if (socket && sessionId && user?.id && voiceEmotion) {
-      const emotionMapping = {
-        happy: "happy",
-        excited: "happy",
-        calm: "neutral",
-        neutral: "neutral",
-        stressed: "fearful",
-        angry: "angry",
-        sad: "sad",
-        frustrated: "angry",
-      } as const
-      const mapped = emotionMapping[voiceEmotion.emotion as keyof typeof emotionMapping] || "neutral"
-      const emotions: EmotionData = {
-        happy: 0,
-        sad: 0,
-        angry: 0,
-        fearful: 0,
-        disgusted: 0,
-        surprised: 0,
-        neutral: 0,
+  const handleVoiceEmotionDetected = useCallback(
+    (voiceEmotion: VoiceEmotionData) => {
+      setCurrentVoiceEmotion(
+        (prev: VoiceEmotionData | undefined) => voiceEmotion
+      );
+      // Convert to EmotionData format for backend
+      if (socket && sessionId && user?.id && voiceEmotion) {
+        const emotionMapping = {
+          happy: "happy",
+          excited: "happy",
+          calm: "neutral",
+          neutral: "neutral",
+          stressed: "fearful",
+          angry: "angry",
+          sad: "sad",
+          frustrated: "angry",
+        } as const;
+        const mapped =
+          emotionMapping[voiceEmotion.emotion as keyof typeof emotionMapping] ||
+          "neutral";
+        const emotions: EmotionData = {
+          happy: 0,
+          sad: 0,
+          angry: 0,
+          fearful: 0,
+          disgusted: 0,
+          surprised: 0,
+          neutral: 0,
+        };
+        emotions[mapped] = voiceEmotion.confidence;
+        socket.emit("emotion_update", {
+          session_id: sessionId,
+          user_id: user.id,
+          emotions,
+          source: "voice",
+        });
       }
-      emotions[mapped] = voiceEmotion.confidence
-      socket.emit("emotion_update", {
-        session_id: sessionId,
-        user_id: user.id,
-        emotions,
-        source: "voice"
-      })
-    }
-  }, [socket, sessionId, user])
+    },
+    [socket, sessionId, user]
+  );
 
   // Audio level monitoring with useCallback and throttling
   const monitorAudioLevel = useCallback(() => {
-    if (!analyserRef.current) return
+    if (!analyserRef.current) return;
 
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-    analyserRef.current.getByteFrequencyData(dataArray)
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
 
-    const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
-    const normalizedLevel = Math.min(100, (average / 128) * 100)
+    const average =
+      dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+    const normalizedLevel = Math.min(100, (average / 128) * 100);
 
     // Only update if changed significantly
     setAudioLevel((prevLevel) => {
-      const diff = Math.abs(prevLevel - normalizedLevel)
-      return diff > 3 ? Math.round(normalizedLevel) : prevLevel
-    })
+      const diff = Math.abs(prevLevel - normalizedLevel);
+      return diff > 3 ? Math.round(normalizedLevel) : prevLevel;
+    });
 
     // Only schedule next frame if analyserRef still exists
     if (analyserRef.current) {
-      animationFrameRef.current = requestAnimationFrame(monitorAudioLevel)
+      animationFrameRef.current = requestAnimationFrame(monitorAudioLevel);
     }
-  }, [])
+  }, []);
 
   const startAudio = useCallback(async () => {
     try {
-      setIsAudioLoading(true)
-      setAudioError(null)
-      setAudioStatus("Requesting microphone access...")
+      setIsAudioLoading(true);
+      setAudioError(null);
+      setAudioStatus("Requesting microphone access...");
 
       // Clean up existing streams and contexts
       if (audioStreamRef.current) {
-        audioStreamRef.current.getTracks().forEach((track) => track.stop())
-        audioStreamRef.current = null
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+        audioStreamRef.current = null;
       }
 
       if (audioContextRef.current) {
-        audioContextRef.current.close()
-        audioContextRef.current = null
+        audioContextRef.current.close();
+        audioContextRef.current = null;
       }
 
       // Cancel any existing animation frame
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-        animationFrameRef.current = null
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-      setAudioStatus("Accessing microphone...")
+      setAudioStatus("Accessing microphone...");
 
       const audioStream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -343,126 +393,134 @@ export default function MeetingPage() {
           sampleRate: 44100,
         },
         video: false,
-      })
+      });
 
-      audioStreamRef.current = audioStream
-      setAudioStatus("Setting up audio analysis...")
+      audioStreamRef.current = audioStream;
+      setAudioStatus("Setting up audio analysis...");
 
       try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
-        const source = audioContextRef.current.createMediaStreamSource(audioStream)
-        analyserRef.current = audioContextRef.current.createAnalyser()
+        audioContextRef.current = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+        const source =
+          audioContextRef.current.createMediaStreamSource(audioStream);
+        analyserRef.current = audioContextRef.current.createAnalyser();
 
-        analyserRef.current.fftSize = 256
-        source.connect(analyserRef.current)
+        analyserRef.current.fftSize = 256;
+        source.connect(analyserRef.current);
 
         // Start monitoring after everything is set up (only once)
         if (!animationFrameRef.current) {
-          animationFrameRef.current = requestAnimationFrame(monitorAudioLevel)
+          animationFrameRef.current = requestAnimationFrame(monitorAudioLevel);
         }
-        setAudioStatus("Microphone active - AI voice emotion detection enabled")
-        setVoiceDetectionActive(true)
+        setAudioStatus(
+          "Microphone active - AI voice emotion detection enabled"
+        );
+        setVoiceDetectionActive(true);
       } catch (audioContextError) {
-        console.warn("Audio context setup failed:", audioContextError)
-        setAudioStatus("Microphone active (basic mode)")
+        console.warn("Audio context setup failed:", audioContextError);
+        setAudioStatus("Microphone active (basic mode)");
       }
 
-      setIsMicOn(true)
-      setIsAudioLoading(false)
+      setIsMicOn(true);
+      setIsAudioLoading(false);
     } catch (err) {
-      console.error("Error accessing microphone:", err)
-      setIsAudioLoading(false)
-      setIsMicOn(false)
-      setAudioError(`Audio error: ${err instanceof Error ? err.message : "Unknown error"}`)
+      console.error("Error accessing microphone:", err);
+      setIsAudioLoading(false);
+      setIsMicOn(false);
+      setAudioError(
+        `Audio error: ${err instanceof Error ? err.message : "Unknown error"}`
+      );
     }
-  }, [monitorAudioLevel])
+  }, [monitorAudioLevel]);
 
   const stopAudio = useCallback(() => {
-    setIsAudioLoading(true)
-    setAudioStatus("Stopping microphone...")
+    setIsAudioLoading(true);
+    setAudioStatus("Stopping microphone...");
 
     // Cancel animation frame first
     if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current)
-      animationFrameRef.current = null
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
     }
 
     // Clean up audio stream
     if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach((track) => track.stop())
-      audioStreamRef.current = null
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
     }
 
     // Clean up audio context
     if (audioContextRef.current) {
-      audioContextRef.current.close()
-      audioContextRef.current = null
+      audioContextRef.current.close();
+      audioContextRef.current = null;
     }
 
-    analyserRef.current = null
-    setAudioLevel(0)
-    setIsMicOn(false)
-    setVoiceDetectionActive(false)
-    setIsSpeaking(false)
-    setCurrentVoiceEmotion(undefined)
-    setAudioStatus("")
-    setIsAudioLoading(false)
-  }, [])
+    analyserRef.current = null;
+    setAudioLevel(0);
+    setIsMicOn(false);
+    setVoiceDetectionActive(false);
+    setIsSpeaking(false);
+    setCurrentVoiceEmotion(undefined);
+    setAudioStatus("");
+    setIsAudioLoading(false);
+  }, []);
 
   const combineAudioVideoStreams = useCallback(() => {
-    if (!localStreamRef.current || !audioStreamRef.current) return
+    if (!localStreamRef.current || !audioStreamRef.current) return;
 
     try {
-      const combinedStream = new MediaStream()
+      const combinedStream = new MediaStream();
 
       localStreamRef.current.getVideoTracks().forEach((track) => {
-        combinedStream.addTrack(track)
-      })
+        combinedStream.addTrack(track);
+      });
 
       audioStreamRef.current.getAudioTracks().forEach((track) => {
-        combinedStream.addTrack(track)
-      })
+        combinedStream.addTrack(track);
+      });
 
       if (videoRef.current) {
-        videoRef.current.srcObject = combinedStream
+        videoRef.current.srcObject = combinedStream;
       }
 
-      console.log("Combined audio and video streams")
+      console.log("Combined audio and video streams");
     } catch (err) {
-      console.error("Error combining streams:", err)
+      console.error("Error combining streams:", err);
     }
-  }, [])
+  }, []);
 
   const startCamera = useCallback(async () => {
     try {
-      setIsLoading(true)
-      setCameraError(null)
-      setCameraStatus("Initializing camera...")
+      setIsLoading(true);
+      setCameraError(null);
+      setCameraStatus("Initializing camera...");
 
       if (!videoRef.current) {
-        setCameraStatus("Waiting for video element...")
-        let attempts = 0
-        const maxAttempts = 10
+        setCameraStatus("Waiting for video element...");
+        let attempts = 0;
+        const maxAttempts = 10;
 
         while (!videoRef.current && attempts < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 500))
-          attempts++
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          attempts++;
         }
 
         if (!videoRef.current) {
-          throw new Error("Video element not found after multiple attempts")
+          throw new Error("Video element not found after multiple attempts");
         }
       }
 
-      setCameraStatus("Stopping any existing video streams...")
+      setCameraStatus("Stopping any existing video streams...");
 
       if (localStreamRef.current) {
-        localStreamRef.current.getVideoTracks().forEach((track) => track.stop())
+        localStreamRef.current
+          .getVideoTracks()
+          .forEach((track) => track.stop());
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      setCameraStatus("Requesting camera access...")
+      setCameraStatus("Requesting camera access...");
 
       const videoStream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -472,141 +530,149 @@ export default function MeetingPage() {
           frameRate: { ideal: 30 },
         },
         audio: false,
-      })
+      });
 
-      console.log("Camera stream obtained:", videoStream)
-      localStreamRef.current = videoStream
+      console.log("Camera stream obtained:", videoStream);
+      localStreamRef.current = videoStream;
 
-      setCameraStatus("Connecting to video element...")
+      setCameraStatus("Connecting to video element...");
 
-      videoRef.current.srcObject = videoStream
-      videoRef.current.muted = true
-      videoRef.current.autoplay = true
-      videoRef.current.playsInline = true
+      videoRef.current.srcObject = videoStream;
+      videoRef.current.muted = true;
+      videoRef.current.autoplay = true;
+      videoRef.current.playsInline = true;
 
       videoRef.current.onloadedmetadata = () => {
-        setCameraStatus("Video metadata loaded, starting playback...")
+        setCameraStatus("Video metadata loaded, starting playback...");
 
         if (videoRef.current) {
           videoRef.current
             .play()
             .then(() => {
-              setCameraStatus("Camera active - AI face emotion detection enabled")
-              setIsCameraOn(true)
-              setIsLoading(false)
+              setCameraStatus(
+                "Camera active - AI face emotion detection enabled"
+              );
+              setIsCameraOn(true);
+              setIsLoading(false);
 
               if (isMicOn && audioStreamRef.current) {
-                combineAudioVideoStreams()
+                combineAudioVideoStreams();
               }
             })
             .catch((playErr) => {
-              console.error("Error playing video:", playErr)
-              setCameraError(`Video playback error: ${playErr.message}`)
-              setIsLoading(false)
-            })
+              console.error("Error playing video:", playErr);
+              setCameraError(`Video playback error: ${playErr.message}`);
+              setIsLoading(false);
+            });
         }
-      }
+      };
     } catch (err) {
-      console.error("Error accessing camera:", err)
-      setIsLoading(false)
-      setIsCameraOn(false)
-      setCameraError(`Camera error: ${err instanceof Error ? err.message : "Unknown error"}`)
+      console.error("Error accessing camera:", err);
+      setIsLoading(false);
+      setIsCameraOn(false);
+      setCameraError(
+        `Camera error: ${err instanceof Error ? err.message : "Unknown error"}`
+      );
     }
-  }, [isMicOn, combineAudioVideoStreams])
+  }, [isMicOn, combineAudioVideoStreams]);
 
   const stopCamera = useCallback(() => {
-    setIsLoading(true)
-    setCameraStatus("Stopping camera...")
+    setIsLoading(true);
+    setCameraStatus("Stopping camera...");
 
     if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach((track) => track.stop())
+      localStreamRef.current.getVideoTracks().forEach((track) => track.stop());
     }
 
     if (videoRef.current) {
-      videoRef.current.srcObject = null
+      videoRef.current.srcObject = null;
     }
 
-    localStreamRef.current = null
-    setIsCameraOn(false)
-    setFaceDetected(false)
-    setCurrentFaceEmotions(undefined)
-    setCameraStatus("")
-    setIsLoading(false)
-  }, [])
+    localStreamRef.current = null;
+    setIsCameraOn(false);
+    setFaceDetected(false);
+    setCurrentFaceEmotions(undefined);
+    setCameraStatus("");
+    setIsLoading(false);
+  }, []);
 
   const toggleMicrophone = useCallback(() => {
     if (isMicOn) {
-      stopAudio()
+      stopAudio();
     } else {
-      startAudio()
+      startAudio();
     }
-  }, [isMicOn, stopAudio, startAudio])
+  }, [isMicOn, stopAudio, startAudio]);
 
   const toggleCamera = useCallback(() => {
     if (isCameraOn) {
-      stopCamera()
+      stopCamera();
     } else {
-      startCamera()
+      startCamera();
     }
-  }, [isCameraOn, stopCamera, startCamera])
+  }, [isCameraOn, stopCamera, startCamera]);
 
   // Memoize audio stream to prevent unnecessary re-renders of VoiceEmotionDetector
-  const memoizedAudioStream = useMemo(() => audioStreamRef.current, [isMicOn])
+  const memoizedAudioStream = useMemo(() => audioStreamRef.current, [isMicOn]);
 
   // Handler for speaking state changes from VoiceEmotionDetector
   const handleSpeakingStateChanged = useCallback((speaking: boolean) => {
-    setIsSpeaking(speaking)
-  }, [])
+    setIsSpeaking(speaking);
+  }, []);
 
   // TODO: Replace with actual session/user context or params
   useEffect(() => {
     // Example: get sessionId and user from query or context
-    setSessionId("demo-session-id")
-    setUser({ id: "user-1", name: "You" })
-  }, [])
+    setSessionId("demo-session-id");
+    setUser({ id: "user-1", name: "You" });
+  }, []);
 
   // Connect to Socket.IO backend
   useEffect(() => {
-    if (!joinToken) return
+    if (!joinToken) return;
     const s = io(process.env.NEXT_PUBLIC_SOCKET_IO_URL, {
       query: { join_token: joinToken },
       transports: ["websocket"],
       withCredentials: true,
-    })
-    setSocket(s)
+    });
+    setSocket(s);
     s.on("connect", () => {
       // Optionally fetch session/user info
-      s.emit("get_session_info", { join_token: joinToken })
-    })
+      s.emit("get_session_info", { join_token: joinToken });
+    });
     s.on("session_info", (data) => {
-      setSessionId(data.session_id)
-      setUser(data.user)
-      setParticipants(data.participants)
-      setChatMessages(data.chat)
-      setTeamEmotions(data.team_emotions)
-      setAiSuggestions(data.ai_suggestions)
-      setAiInsights(data.ai_insights)
-    })
-    s.on("participant_update", setParticipants)
-    s.on("chat_update", setChatMessages)
-    s.on("team_emotions_update", setTeamEmotions)
-    s.on("ai_suggestions_update", setAiSuggestions)
-    s.on("ai_insights_update", setAiInsights)
+      setSessionId(data.session_id);
+      setUser(data.user);
+      setParticipants(data.participants);
+      setChatMessages(data.chat);
+      setTeamEmotions(data.team_emotions);
+      setAiSuggestions(data.ai_suggestions);
+      setAiInsights(data.ai_insights);
+    });
+    s.on("participant_update", setParticipants);
+    s.on("chat_update", setChatMessages);
+    s.on("team_emotions_update", setTeamEmotions);
+    s.on("ai_suggestions_update", setAiSuggestions);
+    s.on("ai_insights_update", setAiInsights);
     return () => {
-      s.disconnect()
-    }
-  }, [joinToken])
+      s.disconnect();
+    };
+  }, [joinToken]);
 
   // Send local emotion to backend in real-time
   useEffect(() => {
     if (socket && combinedEmotions) {
-      socket.emit("emotion_update", { session_id: sessionId, user_id: user?.id, emotions: combinedEmotions })
+      socket.emit("emotion_update", {
+        session_id: sessionId,
+        user_id: user?.id,
+        emotions: combinedEmotions,
+      });
     }
-  }, [combinedEmotions, socket, sessionId, user])
+  }, [combinedEmotions, socket, sessionId, user]);
 
   // --- Real-time emotion broadcast to dashboard (for live chart sync) ---
   useEffect(() => {
-    if (!socket || !combinedEmotions) return
+    if (!socket || !combinedEmotions) return;
     // Emit to a global dashboard room/channel for real-time chart
     socket.emit("emotion_update", {
       session_id: sessionId,
@@ -614,23 +680,27 @@ export default function MeetingPage() {
       emotions: combinedEmotions,
       // Optionally add timestamp for chart
       timestamp: Date.now(),
-      source: "meeting"
-    })
-  }, [combinedEmotions, socket, sessionId, user])
+      source: "meeting",
+    });
+  }, [combinedEmotions, socket, sessionId, user]);
 
   // Send chat message
   const sendChat = (msg: string) => {
     if (socket && msg) {
-      socket.emit("chat_message", { session_id: sessionId, user_id: user?.id, message: msg })
+      socket.emit("chat_message", {
+        session_id: sessionId,
+        user_id: user?.id,
+        message: msg,
+      });
     }
-  }
+  };
 
   // Request AI suggestion (Gamini API integration)
   const requestAiSuggestion = () => {
     if (socket) {
-      socket.emit("request_ai_suggestion", { session_id: sessionId })
+      socket.emit("request_ai_suggestion", { session_id: sessionId });
     }
-  }
+  };
 
   // Handler for ending meeting
   const endMeeting = async () => {
@@ -641,110 +711,141 @@ export default function MeetingPage() {
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ session_id: sessionId }),
-        })
+        });
         await fetch("/api/trigger_gamini_summary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ session_id: sessionId }),
-        })
+        });
         // Fetch latest session summary and update AI suggestions/insights
-        const summaryRes = await fetch(`/api/sessions/session_summary/${sessionId}`, {
-          credentials: "include"
-        })
+        const summaryRes = await fetch(
+          `/api/sessions/session_summary/${sessionId}`,
+          {
+            credentials: "include",
+          }
+        );
         if (summaryRes.ok) {
-          const summaryData = await summaryRes.json()
-          setAiSuggestions(Array.isArray(summaryData.ai_suggestions) ? summaryData.ai_suggestions : [])
+          const summaryData = await summaryRes.json();
+          setAiSuggestions(
+            Array.isArray(summaryData.ai_suggestions)
+              ? summaryData.ai_suggestions
+              : []
+          );
           // Try to get insights from summaryData.session.ai_insights or summaryData.ai_insights
           setAiInsights(
             (summaryData.session && summaryData.session.ai_insights) ||
-            summaryData.ai_insights ||
-            []
-          )
+              summaryData.ai_insights ||
+              []
+          );
         }
-        router.push("/dashboard/history")
+        router.push("/dashboard/history");
       } catch (e) {
-        alert("Gagal mengakhiri rapat. Silakan coba lagi.")
+        alert("Gagal mengakhiri rapat. Silakan coba lagi.");
       }
     }
-  }
+  };
 
   // Handler for settings button
   const goToSettings = () => {
-    router.push("/dashboard/settings")
-  }
+    router.push("/dashboard/settings");
+  };
 
   // Handler for screen sharing
   const toggleScreenShare = async () => {
     if (!screenStream) {
       try {
-        const stream = await (navigator.mediaDevices as any).getDisplayMedia({ video: true })
-        setScreenStream(stream)
+        const stream = await (navigator.mediaDevices as any).getDisplayMedia({
+          video: true,
+        });
+        setScreenStream(stream);
         // Optionally, show the screen stream in the video element or send to backend/participants
         if (videoRef.current) {
-          videoRef.current.srcObject = stream
+          videoRef.current.srcObject = stream;
         }
-        setIsScreenSharing(true)
+        setIsScreenSharing(true);
         stream.getVideoTracks()[0].onended = () => {
-          setScreenStream(null)
-          setIsScreenSharing(false)
-          if (videoRef.current) videoRef.current.srcObject = null
-        }
+          setScreenStream(null);
+          setIsScreenSharing(false);
+          if (videoRef.current) videoRef.current.srcObject = null;
+        };
       } catch (e) {
-        alert("Gagal membagikan layar.")
+        alert("Gagal membagikan layar.");
       }
     } else {
       // Stop screen sharing
-      screenStream.getTracks().forEach((track) => track.stop())
-      setScreenStream(null)
-      setIsScreenSharing(false)
-      if (videoRef.current) videoRef.current.srcObject = null
+      screenStream.getTracks().forEach((track) => track.stop());
+      setScreenStream(null);
+      setIsScreenSharing(false);
+      if (videoRef.current) videoRef.current.srcObject = null;
     }
-  }
+  };
 
   // Format team emotions for sidebar
   const formattedTeamEmotions = useMemo(() => {
-    if (!teamEmotions) return null
+    if (!teamEmotions) return null;
     return Object.entries(teamEmotions).map(([key, value]) => ({
       label: key,
       value: typeof value === "number" ? Math.round(value * 100) : 0,
-    }))
-  }, [teamEmotions])
+    }));
+  }, [teamEmotions]);
 
   // Real-time state for agenda
-  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([])
+  const [agendaItems, setAgendaItems] = useState<AgendaItem[]>([]);
 
   // Map chatMessages to Message[] if needed
-  const mappedChatMessages: Message[] = chatMessages.map((msg: any, idx: number) => ({
-    id: msg.id ?? idx + 1,
-    sender: msg.user ?? msg.sender ?? "",
-    senderInitials: msg.senderInitials ?? (msg.user ? msg.user.split(" ").map((n: string) => n[0]).join("") : ""),
-    avatar: msg.avatar ?? "",
-    content: msg.message ?? msg.content ?? "",
-    timestamp: msg.timestamp ?? "",
-    isSystem: msg.isSystem ?? false,
-    emotion: msg.emotion,
-  }))
+  const mappedChatMessages: Message[] = chatMessages.map(
+    (msg: any, idx: number) => ({
+      id: msg.id ?? idx + 1,
+      sender: msg.user ?? msg.sender ?? "",
+      senderInitials:
+        msg.senderInitials ??
+        (msg.user
+          ? msg.user
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+          : ""),
+      avatar: msg.avatar ?? "",
+      content: msg.message ?? msg.content ?? "",
+      timestamp: msg.timestamp ?? "",
+      isSystem: msg.isSystem ?? false,
+      emotion: msg.emotion,
+    })
+  );
 
   // Map participants to Participant[] if needed
-  const mappedParticipants: Participant[] = participants.map((p: any, idx: number) => ({
-    id: p.id ?? idx + 1,
-    name: p.name ?? "",
-    initials: p.initials ?? (p.name ? p.name.split(" ").map((n: string) => n[0]).join("") : ""),
-    avatar: p.avatar ?? "",
-    role: p.role ?? "Anggota Tim",
-    isSpeaking: p.isSpeaking ?? false,
-    isMuted: p.isMuted ?? false,
-    isVideoOn: p.isVideoOn ?? false,
-    isScreenSharing: p.isScreenSharing ?? false,
-    joinTime: p.joinTime ?? "",
-    dominantEmotion: p.dominantEmotion ?? "neutral",
-  }))
+  const mappedParticipants: Participant[] = participants.map(
+    (p: any, idx: number) => ({
+      id: p.id ?? idx + 1,
+      name: p.name ?? "",
+      initials:
+        p.initials ??
+        (p.name
+          ? p.name
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+          : ""),
+      avatar: p.avatar ?? "",
+      role: p.role ?? "Anggota Tim",
+      isSpeaking: p.isSpeaking ?? false,
+      isMuted: p.isMuted ?? false,
+      isVideoOn: p.isVideoOn ?? false,
+      isScreenSharing: p.isScreenSharing ?? false,
+      joinTime: p.joinTime ?? "",
+      dominantEmotion: p.dominantEmotion ?? "neutral",
+    })
+  );
 
   // Handler for toggling agenda item completion
   const handleToggleAgendaComplete = (id: number) => {
-    setAgendaItems((prev: AgendaItem[]) => prev.map((item: AgendaItem) => (item.id === id ? { ...item, isCompleted: !item.isCompleted } : item)))
-  }
+    setAgendaItems((prev: AgendaItem[]) =>
+      prev.map((item: AgendaItem) =>
+        item.id === id ? { ...item, isCompleted: !item.isCompleted } : item
+      )
+    );
+  };
 
   // Handler for adding agenda item
   const handleAddAgenda = () => {
@@ -757,35 +858,49 @@ export default function MeetingPage() {
         isCompleted: false,
         assignee: user?.name || "",
       },
-    ])
-  }
+    ]);
+  };
 
   return (
     <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Live Meeting: {sessionId || "..."}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Live Meeting: {sessionId || "..."}
+          </h1>
           <div className="flex items-center text-muted-foreground mt-1">
             <Clock className="mr-1 h-4 w-4" />
             <span>Duration: {formatTime(elapsedTime)}</span>
-            <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 hover:bg-green-100">
+            <Badge
+              variant="outline"
+              className="ml-2 bg-green-50 text-green-700 hover:bg-green-100"
+            >
               Live
             </Badge>
             {faceDetected && (
-              <Badge variant="outline" className="ml-2 bg-purple-50 text-purple-700 hover:bg-purple-100">
+              <Badge
+                variant="outline"
+                className="ml-2 bg-purple-50 text-purple-700 hover:bg-purple-100"
+              >
                 <Brain className="mr-1 h-3 w-3" />
                 Face AI
               </Badge>
             )}
             {voiceDetectionActive && (
-              <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 hover:bg-blue-100">
+              <Badge
+                variant="outline"
+                className="ml-2 bg-blue-50 text-blue-700 hover:bg-blue-100"
+              >
                 <Waves className="mr-1 h-3 w-3" />
                 Voice AI
               </Badge>
             )}
             {isSpeaking && (
-              <Badge variant="outline" className="ml-2 bg-orange-50 text-orange-700 hover:bg-orange-100">
+              <Badge
+                variant="outline"
+                className="ml-2 bg-orange-50 text-orange-700 hover:bg-orange-100"
+              >
                 <Volume2 className="mr-1 h-3 w-3" />
                 Berbicara
               </Badge>
@@ -822,7 +937,9 @@ export default function MeetingPage() {
                 <Volume2 className="h-4 w-4 text-green-600" />
                 <div className="w-20 bg-gray-200 rounded-full h-2">
                   <div
-                    className={`${isSpeaking ? "bg-orange-500" : "bg-green-500"} h-2 rounded-full transition-all duration-100`}
+                    className={`${
+                      isSpeaking ? "bg-orange-500" : "bg-green-500"
+                    } h-2 rounded-full transition-all duration-100`}
                     style={{ width: `${audioLevel}%` }}
                   ></div>
                 </div>
@@ -839,13 +956,17 @@ export default function MeetingPage() {
           <div className="flex items-center">
             <Waves className="h-4 w-4 text-orange-600 mr-2" />
             <span className="text-sm text-orange-700">
-              Voice Emotion: <strong className="capitalize">{currentVoiceEmotion.emotion}</strong> (
-              {Math.round(currentVoiceEmotion.confidence * 100)}% confidence)
+              Voice Emotion:{" "}
+              <strong className="capitalize">
+                {currentVoiceEmotion.emotion}
+              </strong>{" "}
+              ({Math.round(currentVoiceEmotion.confidence * 100)}% confidence)
             </span>
           </div>
           <div className="text-xs text-orange-600">
-            Pitch: {Math.round(currentVoiceEmotion.audioFeatures.pitch)} | Energy:{" "}
-            {Math.round(currentVoiceEmotion.audioFeatures.energy * 100)}%
+            Pitch: {Math.round(currentVoiceEmotion.audioFeatures.pitch)} |
+            Energy: {Math.round(currentVoiceEmotion.audioFeatures.energy * 100)}
+            %
           </div>
         </div>
       )}
@@ -857,7 +978,12 @@ export default function MeetingPage() {
           <div className="flex-1">
             <h3 className="font-medium text-red-800">Camera Error</h3>
             <p className="text-sm text-red-700 mb-2">{cameraError}</p>
-            <Button size="sm" variant="outline" onClick={startCamera} className="text-red-700 border-red-300">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={startCamera}
+              className="text-red-700 border-red-300"
+            >
               <RefreshCw className="mr-2 h-4 w-4" />
               Try Again
             </Button>
@@ -871,7 +997,12 @@ export default function MeetingPage() {
           <div className="flex-1">
             <h3 className="font-medium text-red-800">Microphone Error</h3>
             <p className="text-sm text-red-700 mb-2">{audioError}</p>
-            <Button size="sm" variant="outline" onClick={startAudio} className="text-red-700 border-red-300">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={startAudio}
+              className="text-red-700 border-red-300"
+            >
               <RefreshCw className="mr-2 h-4 w-4" />
               Try Again
             </Button>
@@ -885,7 +1016,8 @@ export default function MeetingPage() {
           <div className="flex-1">
             <h3 className="font-medium text-blue-800">AI Suggestion</h3>
             <p className="text-sm text-blue-700 mb-2">
-              Team stress levels are rising slightly. Consider taking a short break in the next 5 minutes.
+              Team stress levels are rising slightly. Consider taking a short
+              break in the next 5 minutes.
             </p>
             <div className="flex gap-2">
               <Button
@@ -914,7 +1046,9 @@ export default function MeetingPage() {
                 {/* Always render the video element */}
                 <video
                   ref={videoRef}
-                  className={`w-full h-full object-cover ${isCameraOn ? "block" : "hidden"}`}
+                  className={`w-full h-full object-cover ${
+                    isCameraOn ? "block" : "hidden"
+                  }`}
                   muted
                   autoPlay
                   playsInline
@@ -948,25 +1082,42 @@ export default function MeetingPage() {
                 {!isCameraOn && user && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white space-y-4">
                     <Avatar className="h-24 w-24">
-                      <AvatarFallback className="text-4xl">{user.name?.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                      <AvatarFallback className="text-4xl">
+                        {user.name
+                          ?.split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </AvatarFallback>
                     </Avatar>
                     <span className="text-xl">{user.name} (You)</span>
 
                     {isMicOn && (
                       <div className="flex items-center gap-2 bg-black bg-opacity-50 px-3 py-2 rounded-full">
-                        <Mic className={`h-4 w-4 ${isSpeaking ? "text-orange-400" : "text-green-400"}`} />
+                        <Mic
+                          className={`h-4 w-4 ${
+                            isSpeaking ? "text-orange-400" : "text-green-400"
+                          }`}
+                        />
                         <div className="w-16 bg-gray-600 rounded-full h-2">
                           <div
-                            className={`${isSpeaking ? "bg-orange-400" : "bg-green-400"} h-2 rounded-full transition-all duration-100`}
+                            className={`${
+                              isSpeaking ? "bg-orange-400" : "bg-green-400"
+                            } h-2 rounded-full transition-all duration-100`}
                             style={{ width: `${audioLevel}%` }}
                           ></div>
                         </div>
-                        {voiceDetectionActive && <Waves className="h-4 w-4 text-blue-400 animate-pulse" />}
+                        {voiceDetectionActive && (
+                          <Waves className="h-4 w-4 text-blue-400 animate-pulse" />
+                        )}
                       </div>
                     )}
 
                     <div className="flex gap-2">
-                      <Button onClick={startCamera} disabled={isLoading} className="bg-teal-600 hover:bg-teal-700">
+                      <Button
+                        onClick={startCamera}
+                        disabled={isLoading}
+                        className="bg-teal-600 hover:bg-teal-700"
+                      >
                         {isLoading ? (
                           <>
                             <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
@@ -986,7 +1137,8 @@ export default function MeetingPage() {
                         <Brain className="h-5 w-5" />
                         <Waves className="h-5 w-5" />
                       </div>
-                      Multi-modal AI emotion detection: Face + Voice analysis for comprehensive mood tracking
+                      Multi-modal AI emotion detection: Face + Voice analysis
+                      for comprehensive mood tracking
                     </div>
                   </div>
                 )}
@@ -995,10 +1147,18 @@ export default function MeetingPage() {
                 {participants && participants.length > 0 && (
                   <div className="absolute top-4 right-4 flex flex-col gap-2 max-w-[200px]">
                     {participants.map((p) => (
-                      <div key={p.id} className="w-32 h-20 bg-gray-800 rounded overflow-hidden border-2 border-white relative">
+                      <div
+                        key={p.id}
+                        className="w-32 h-20 bg-gray-800 rounded overflow-hidden border-2 border-white relative"
+                      >
                         <div className="w-full h-full flex items-center justify-center bg-gray-700">
                           <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">{p.name?.split(" ").map((n) => n[0]).join("")}</AvatarFallback>
+                            <AvatarFallback className="text-xs">
+                              {p.name
+                                ?.split(" ")
+                                .map((n) => n[0])
+                                .join("")}
+                            </AvatarFallback>
                           </Avatar>
                         </div>
                         <div className="absolute bottom-1 left-1 text-white text-xs bg-black bg-opacity-70 px-1 rounded">
@@ -1015,7 +1175,11 @@ export default function MeetingPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`rounded-full relative ${isMicOn ? "text-white hover:bg-white/20" : "bg-red-500 text-white hover:bg-red-600"}`}
+                      className={`rounded-full relative ${
+                        isMicOn
+                          ? "text-white hover:bg-white/20"
+                          : "bg-red-500 text-white hover:bg-red-600"
+                      }`}
                       onClick={toggleMicrophone}
                       disabled={isAudioLoading}
                     >
@@ -1025,7 +1189,9 @@ export default function MeetingPage() {
                         <>
                           <Mic className="h-5 w-5" />
                           <div
-                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${isSpeaking ? "bg-orange-400" : "bg-green-400"}`}
+                            className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
+                              isSpeaking ? "bg-orange-400" : "bg-green-400"
+                            }`}
                             style={{ opacity: audioLevel > 10 ? 1 : 0.3 }}
                           ></div>
                           {voiceDetectionActive && (
@@ -1040,7 +1206,11 @@ export default function MeetingPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`rounded-full relative ${isCameraOn ? "text-white hover:bg-white/20" : "bg-red-500 text-white hover:bg-red-600"}`}
+                      className={`rounded-full relative ${
+                        isCameraOn
+                          ? "text-white hover:bg-white/20"
+                          : "bg-red-500 text-white hover:bg-red-600"
+                      }`}
                       onClick={toggleCamera}
                       disabled={isLoading}
                     >
@@ -1061,15 +1231,26 @@ export default function MeetingPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`rounded-full ${isScreenSharing ? "bg-green-500 text-white hover:bg-green-600" : "text-white hover:bg-white/20"}`}
+                      className={`rounded-full ${
+                        isScreenSharing
+                          ? "bg-green-500 text-white hover:bg-green-600"
+                          : "text-white hover:bg-white/20"
+                      }`}
                       onClick={toggleScreenShare}
                     >
                       <ScreenShare className="h-5 w-5" />
                     </Button>
 
-                    <Separator orientation="vertical" className="h-8 bg-gray-600" />
+                    <Separator
+                      orientation="vertical"
+                      className="h-8 bg-gray-600"
+                    />
 
-                    <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-white/20">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full text-white hover:bg-white/20"
+                    >
                       <Maximize2 className="h-5 w-5" />
                     </Button>
                   </div>
@@ -1091,7 +1272,10 @@ export default function MeetingPage() {
                 <span className="hidden sm:inline">Team Chat</span>
                 <span className="sm:hidden">Chat</span>
               </TabsTrigger>
-              <TabsTrigger value="participants" className="flex items-center gap-2">
+              <TabsTrigger
+                value="participants"
+                className="flex items-center gap-2"
+              >
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">Participants</span>
                 <span className="sm:hidden">People</span>
@@ -1110,11 +1294,41 @@ export default function MeetingPage() {
                 teamEmotions={participants.map((p) => ({
                   id: p.id?.toString() ?? "",
                   name: p.name,
-                  avatar: p.initials ?? (p.name ? p.name.split(" ").map((n) => n[0]).join("") : "U"),
-                  emotions: p.emotions ?? (p.id === user?.id ? combinedEmotions || { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 1 } : { happy: 0, sad: 0, angry: 0, fearful: 0, disgusted: 0, surprised: 0, neutral: 1 }),
-                  faceDetected: p.id === user?.id ? !!(faceDetected || voiceDetectionActive) : false,
+                  avatar:
+                    p.initials ??
+                    (p.name
+                      ? p.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                      : "U"),
+                  emotions:
+                    p.emotions ??
+                    (p.id === user?.id
+                      ? combinedEmotions || {
+                          happy: 0,
+                          sad: 0,
+                          angry: 0,
+                          fearful: 0,
+                          disgusted: 0,
+                          surprised: 0,
+                          neutral: 1,
+                        }
+                      : {
+                          happy: 0,
+                          sad: 0,
+                          angry: 0,
+                          fearful: 0,
+                          disgusted: 0,
+                          surprised: 0,
+                          neutral: 1,
+                        }),
+                  faceDetected:
+                    p.id === user?.id
+                      ? !!(faceDetected || voiceDetectionActive)
+                      : false,
                   isCurrentUser: p.id === user?.id,
-                }) )}
+                }))}
                 currentUserName={user?.name}
               />
             </TabsContent>
@@ -1147,8 +1361,12 @@ export default function MeetingPage() {
         <div className="xl:col-span-1 space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Multi-Modal AI Analysis</CardTitle>
-              <CardDescription className="text-sm">Face + Voice emotion detection</CardDescription>
+              <CardTitle className="text-base">
+                Multi-Modal AI Analysis
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Face + Voice emotion detection
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
@@ -1156,7 +1374,10 @@ export default function MeetingPage() {
                   <Brain className="mr-1 h-4 w-4 text-purple-600" />
                   Face AI
                 </span>
-                <Badge variant={faceDetected ? "default" : "secondary"} className="text-xs">
+                <Badge
+                  variant={faceDetected ? "default" : "secondary"}
+                  className="text-xs"
+                >
                   {faceDetected ? "Active" : "Inactive"}
                 </Badge>
               </div>
@@ -1165,15 +1386,21 @@ export default function MeetingPage() {
                   <Waves className="mr-1 h-4 w-4 text-blue-600" />
                   Voice AI
                 </span>
-                <Badge variant={voiceDetectionActive ? "default" : "secondary"} className="text-xs">
+                <Badge
+                  variant={voiceDetectionActive ? "default" : "secondary"}
+                  className="text-xs"
+                >
                   {voiceDetectionActive ? "Active" : "Inactive"}
                 </Badge>
               </div>
               {currentVoiceEmotion && (
                 <div className="p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                  <div className="font-medium text-blue-800">Current Voice Emotion:</div>
+                  <div className="font-medium text-blue-800">
+                    Current Voice Emotion:
+                  </div>
                   <div className="text-blue-700 capitalize">
-                    {currentVoiceEmotion.emotion} ({Math.round(currentVoiceEmotion.confidence * 100)}%)
+                    {currentVoiceEmotion.emotion} (
+                    {Math.round(currentVoiceEmotion.confidence * 100)}%)
                   </div>
                 </div>
               )}
@@ -1183,53 +1410,92 @@ export default function MeetingPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Team Emotion Summary</CardTitle>
-              <CardDescription className="text-sm">Real-time emotional state</CardDescription>
+              <CardDescription className="text-sm">
+                Real-time emotional state
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {teamEmotions
-                ? Object.entries(teamEmotions).map(([label, value]) => {
-                    const percent = typeof value === "number" ? Math.round(value * 100) : 0;
-                    return (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className="text-sm font-medium capitalize">{label}</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-12 bg-gray-200 rounded-full h-2">
-                            <div className={`bg-blue-500 h-2 rounded-full`} style={{ width: `${percent}%` }}></div>
-                          </div>
-                          <span className="text-xs w-8 text-right">{percent}%</span>
+              {teamEmotions ? (
+                Object.entries(teamEmotions).map(([label, value]) => {
+                  const percent =
+                    typeof value === "number" ? Math.round(value * 100) : 0;
+                  return (
+                    <div
+                      key={label}
+                      className="flex items-center justify-between"
+                    >
+                      <span className="text-sm font-medium capitalize">
+                        {label}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`bg-blue-500 h-2 rounded-full`}
+                            style={{ width: `${percent}%` }}
+                          ></div>
                         </div>
+                        <span className="text-xs w-8 text-right">
+                          {percent}%
+                        </span>
                       </div>
-                    );
-                  })
-                : <div className="text-xs text-gray-400">No team emotion data yet.</div>}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-xs text-gray-400">
+                  No team emotion data yet.
+                </div>
+              )}
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">AI Insights</CardTitle>
-              <CardDescription className="text-sm">Based on multi-modal analysis</CardDescription>
+              <CardDescription className="text-sm">
+                Based on multi-modal analysis
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {aiInsights.length > 0 ? aiInsights.map((insight, idx) => (
-                <div key={idx} className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-xs text-green-700">{insight}</p>
-                </div>
-              )) : <div className="text-xs text-gray-400">No AI insights yet.</div>}
+              {aiInsights.length > 0 ? (
+                aiInsights.map((insight, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-green-50 border border-green-200 rounded-lg"
+                  >
+                    <p className="text-xs text-green-700">{insight}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-xs text-gray-400">No AI insights yet.</div>
+              )}
               {(faceDetected || voiceDetectionActive) && combinedEmotions && (
                 <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-xs text-purple-700">
-                    🤖 Your combined emotion: {
-                      (Object.keys(combinedEmotions) as (keyof EmotionData)[])
-                        .reduce((maxKey, key) => combinedEmotions[key] > combinedEmotions[maxKey] ? key : maxKey, Object.keys(combinedEmotions)[0] as keyof EmotionData)
-                    } (
-                    {
-                      Math.round(
-                        combinedEmotions[
-                          (Object.keys(combinedEmotions) as (keyof EmotionData)[])
-                            .reduce((maxKey, key) => combinedEmotions[key] > combinedEmotions[maxKey] ? key : maxKey, Object.keys(combinedEmotions)[0] as keyof EmotionData)
-                        ] * 100
-                      )
-                    }%)
+                    🤖 Your combined emotion:{" "}
+                    {(
+                      Object.keys(combinedEmotions) as (keyof EmotionData)[]
+                    ).reduce(
+                      (maxKey, key) =>
+                        combinedEmotions[key] > combinedEmotions[maxKey]
+                          ? key
+                          : maxKey,
+                      Object.keys(combinedEmotions)[0] as keyof EmotionData
+                    )}{" "}
+                    (
+                    {Math.round(
+                      combinedEmotions[
+                        (
+                          Object.keys(combinedEmotions) as (keyof EmotionData)[]
+                        ).reduce(
+                          (maxKey, key) =>
+                            combinedEmotions[key] > combinedEmotions[maxKey]
+                              ? key
+                              : maxKey,
+                          Object.keys(combinedEmotions)[0] as keyof EmotionData
+                        )
+                      ] * 100
+                    )}
+                    %)
                   </p>
                 </div>
               )}
@@ -1238,16 +1504,35 @@ export default function MeetingPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Suggested Actions</CardTitle>
-              <CardDescription className="text-sm">Improve team dynamics</CardDescription>
+              <CardDescription className="text-sm">
+                Improve team dynamics
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 max-h-48 overflow-y-auto">
-              {aiSuggestions.length > 0 ? aiSuggestions.map((action, index) => (
-                <Button key={index} variant="outline" size="sm" className="w-full justify-start text-xs h-8">
-                  <ChevronRight className="mr-2 h-3 w-3" />
-                  {action.title || action.description || (typeof action === 'string' ? action : JSON.stringify(action))}
-                </Button>
-              )) : <div className="text-xs text-gray-400">No suggestions yet.</div>}
-              <Button onClick={requestAiSuggestion} size="sm" className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white">
+              {aiSuggestions.length > 0 ? (
+                aiSuggestions.map((action, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start text-xs h-8"
+                  >
+                    <ChevronRight className="mr-2 h-3 w-3" />
+                    {action.title ||
+                      action.description ||
+                      (typeof action === "string"
+                        ? action
+                        : JSON.stringify(action))}
+                  </Button>
+                ))
+              ) : (
+                <div className="text-xs text-gray-400">No suggestions yet.</div>
+              )}
+              <Button
+                onClick={requestAiSuggestion}
+                size="sm"
+                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 <Brain className="mr-2 h-4 w-4" />
                 Request AI Suggestion
               </Button>
@@ -1256,6 +1541,6 @@ export default function MeetingPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 // END
