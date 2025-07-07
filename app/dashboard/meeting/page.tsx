@@ -654,7 +654,31 @@ export default function MeetingPage() {
     s.on("team_emotions_update", setTeamEmotions);
     s.on("ai_suggestions_update", setAiSuggestions);
     s.on("ai_insights_update", setAiInsights);
+    s.on("new_chat_message", (newMessage) => {
+      // newMessage akan berisi { id, content, sender_id, sender_name, timestamp, emotion }
+      console.log("Pesan baru diterima dengan emosi:", newMessage);
+
+      // Ubah format agar sesuai dengan tipe 'Message' di komponen MeetingChat
+      const formattedMessage: Message = {
+        id: newMessage.id,
+        sender: newMessage.sender_name,
+        content: newMessage.content,
+        timestamp: newMessage.timestamp,
+        emotion: newMessage.emotion, // Ini dia data emosinya!
+        isSystem: false,
+        // Anda bisa menambahkan properti lain jika perlu
+        senderInitials: newMessage.sender_name
+          .split(" ")
+          .map((n: string) => n[0])
+          .join(""),
+        avatar: "",
+      };
+
+      // Tambahkan pesan baru ke dalam state chatMessages
+      setChatMessages((prevMessages) => [...prevMessages, formattedMessage]);
+    });
     return () => {
+      s.off("new_chat_message");
       s.disconnect();
     };
   }, [joinToken]);
@@ -686,12 +710,17 @@ export default function MeetingPage() {
 
   // Send chat message
   const sendChat = (msg: string) => {
-    if (socket && msg) {
-      socket.emit("chat_message", {
+    // Pastikan socket, user, dan sessionId ada sebelum mengirim
+    if (socket && msg && user && sessionId) {
+      socket.emit("send_chat_message", {
         session_id: sessionId,
-        user_id: user?.id,
-        message: msg,
+        content: msg,
+        // user_id akan diambil dari token di backend
       });
+    } else {
+      console.error(
+        "Tidak bisa mengirim pesan: Socket, user, atau session ID tidak ada."
+      );
     }
   };
 
