@@ -21,11 +21,7 @@ export default function JoinSessionPage({
 
   // Next.js 14+ param unwrap (future proof)
   // @ts-ignore
-  const usableParams: any =
-    typeof params === "object" && params !== null && "then" in params
-      ? React.use(params)
-      : params;
-  const joinToken = usableParams.token;
+  const joinToken = params.token;
 
   useEffect(() => {
     async function fetchSession() {
