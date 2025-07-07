@@ -3,6 +3,8 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 
+// Hapus import statis face-api.js dari sini jika ada
+
 export interface EmotionData {
   happy: number;
   sad: number;
@@ -34,7 +36,6 @@ export function FaceEmotionDetector({
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const faceApiRef = useRef<any>(null);
 
-  // Load face-api.js models
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -42,11 +43,11 @@ export function FaceEmotionDetector({
         setLoadingProgress("Menginisialisasi face-api.js...");
         console.log("Memuat model face-api.js...");
 
-        // Import face-api.js (face-api.js akan mengatur tfjs backend secara otomatis)
+        // Gunakan dynamic import di sini
         const faceapi = await import("face-api.js");
         faceApiRef.current = faceapi;
 
-        // Load models dari public/models
+        // ... sisa kode di dalam useEffect tetap sama
         const MODEL_URL = "/models";
 
         setLoadingProgress("Memuat model deteksi wajah...");
@@ -67,7 +68,6 @@ export function FaceEmotionDetector({
         }
         console.log("Model ekspresi wajah berhasil dimuat");
 
-        // Pastikan semua model loaded
         if (
           faceapi.nets.ssdMobilenetv1.isLoaded &&
           faceapi.nets.faceLandmark68Net.isLoaded &&
@@ -89,7 +89,6 @@ export function FaceEmotionDetector({
         );
         setLoadingProgress("");
 
-        // Fallback ke emosi mock untuk demo
         setTimeout(() => {
           setError(null);
           setIsModelLoaded(true);
