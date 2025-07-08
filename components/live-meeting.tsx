@@ -37,7 +37,8 @@ export default function LiveMeeting({ sessionId, userName }: LiveMeetingProps) {
       typeof window !== "undefined"
         ? localStorage.getItem("access_token")
         : null;
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_IO_URL || "http://localhost:8088";
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_IO_URL || "http://localhost:5000";
     const socket = io(socketUrl, {
       transports: ["websocket"],
       query: { token },
@@ -68,27 +69,18 @@ export default function LiveMeeting({ sessionId, userName }: LiveMeetingProps) {
   }, [sessionId]);
 
   // Submit chat message and emotion
-  const handleChatSubmit = async (e: React.FormEvent) => {
+  const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
-    // Send chat message via socket
-    socketRef.current.emit("chat_message", {
+    if (!chatInput.trim() || !socketRef.current) return;
+
+    // Cukup kirim pesan sekali melalui Socket.IO
+    // Backend akan menangani analisis, penyimpanan, dan siaran balasan.
+    socketRef.current.emit("send_chat_message", {
       session_id: sessionId,
-      user: userName,
       content: chatInput,
+      // user dan userName tidak perlu dikirim, karena backend sudah tahu dari token
     });
-    // Send emotion submission to backend
-    await fetchWithAuth(
-      "https://scrummood-be-production.up.railway.app/api/emotions/submit",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          session_id: sessionId,
-          source: "text",
-          content: chatInput,
-        }),
-      }
-    );
+
     setChatInput("");
   };
 

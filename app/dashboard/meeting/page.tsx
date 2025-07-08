@@ -628,57 +628,49 @@ export default function MeetingPage() {
   }, []);
 
   // Connect to Socket.IO backend
+  // Connect to Socket.IO backend
   useEffect(() => {
     if (!joinToken) return;
-    const s = io(process.env.NEXT_PUBLIC_SOCKET_IO_URL, {
-      query: { join_token: joinToken },
+
+    // 1. Ambil access_token dari localStorage
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      console.error("Access token tidak ditemukan, koneksi dibatalkan.");
+      // Anda bisa redirect ke halaman login di sini jika perlu
+      return;
+    }
+
+    // 2. Siapkan URL dengan fallback untuk development
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_IO_URL || "http://localhost:5000";
+
+    // 3. Buat koneksi dengan token JWT untuk autentikasi
+    const s = io(socketUrl, {
+      query: { token }, // <-- Kirim access_token untuk identifikasi pengguna
       transports: ["websocket"],
-      withCredentials: true,
     });
+
     setSocket(s);
+
+    // Setelah terhubung, baru kita bergabung ke sesi dengan joinToken
     s.on("connect", () => {
-      // Optionally fetch session/user info
-      s.emit("get_session_info", { join_token: joinToken });
+      console.log("Socket terhubung, bergabung ke sesi...");
+      s.emit("join_session", { session_id: joinToken }); // Asumsi joinToken adalah ID sesi
     });
+
+    // ... (sisa listener Anda di sini sudah benar, tidak perlu diubah)
     s.on("session_info", (data) => {
       setSessionId(data.session_id);
       setUser(data.user);
-      setParticipants(data.participants);
-      setChatMessages(data.chat);
-      setTeamEmotions(data.team_emotions);
-      setAiSuggestions(data.ai_suggestions);
-      setAiInsights(data.ai_insights);
+      // ...dst
     });
-    s.on("participant_update", setParticipants);
-    s.on("chat_update", setChatMessages);
-    s.on("team_emotions_update", setTeamEmotions);
-    s.on("ai_suggestions_update", setAiSuggestions);
-    s.on("ai_insights_update", setAiInsights);
+
     s.on("new_chat_message", (newMessage) => {
-      // newMessage akan berisi { id, content, sender_id, sender_name, timestamp, emotion }
-      console.log("Pesan baru diterima dengan emosi:", newMessage);
-
-      // Ubah format agar sesuai dengan tipe 'Message' di komponen MeetingChat
-      const formattedMessage: Message = {
-        id: newMessage.id,
-        sender: newMessage.sender_name,
-        content: newMessage.content,
-        timestamp: newMessage.timestamp,
-        emotion: newMessage.emotion, // Ini dia data emosinya!
-        isSystem: false,
-        // Anda bisa menambahkan properti lain jika perlu
-        senderInitials: newMessage.sender_name
-          .split(" ")
-          .map((n: string) => n[0])
-          .join(""),
-        avatar: "",
-      };
-
-      // Tambahkan pesan baru ke dalam state chatMessages
-      setChatMessages((prevMessages) => [...prevMessages, formattedMessage]);
+      // ...dst
     });
+
     return () => {
-      s.off("new_chat_message");
+      // ... (fungsi cleanup Anda sudah benar)
       s.disconnect();
     };
   }, [joinToken]);

@@ -61,26 +61,35 @@ export default function Dashboard() {
   }, [fetchDashboardData]);
 
   // Real-time updates via Socket.IO
+  // Real-time updates via Socket.IO
   useEffect(() => {
-    const s = io(process.env.NEXT_PUBLIC_SOCKET_IO_URL, {
+    // 1. Ambil token dari localStorage
+    const token = localStorage.getItem("access_token");
+
+    // 2. Pastikan token ada sebelum mencoba terhubung
+    if (!token) return;
+
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_IO_URL || "http://localhost:5000"; // Menambahkan fallback untuk keamanan
+
+    const s = io(socketUrl, {
       transports: ["websocket"],
-      withCredentials: true,
+      // 3. Tambahkan token ke query koneksi
+      query: { token },
     });
+
     setSocket(s);
-    // Listen for session/AI updates
+    // ... sisa kode di bawah ini biarkan sama
     s.on("session_ended", fetchDashboardData);
     s.on("ai_suggestions_update", fetchDashboardData);
     s.on("ai_insights_update", fetchDashboardData);
 
-    // --- JOIN SESSION ROOM FOR REAL-TIME EMOTION ---
-    // Ambil session_id aktif dari upcoming (atau localStorage jika perlu)
     const activeSession = upcoming.find(
       (sess) => sess.status === "ACTIVE" || sess.status === "IN_PROGRESS"
     );
     if (activeSession && activeSession.id) {
       s.emit("join_session", { session_id: activeSession.id });
     } else {
-      // Fallback: coba dari localStorage
       const sessionId = localStorage.getItem("current_session_id");
       if (sessionId) s.emit("join_session", { session_id: sessionId });
     }

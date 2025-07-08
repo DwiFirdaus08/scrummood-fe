@@ -19,11 +19,39 @@ export default function TeamVisualizationPage() {
   const [socket, setSocket] = useState<any>(null);
 
   useEffect(() => {
-    const s = io(process.env.NEXT_PUBLIC_SOCKET_IO_URL, {
+    // 1. Ambil token autentikasi dari localStorage
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      console.error("Token tidak ditemukan. Visualisasi tidak dapat dimulai.");
+      return;
+    }
+
+    // 2. Siapkan URL backend dengan fallback
+    const socketUrl =
+      process.env.NEXT_PUBLIC_SOCKET_IO_URL || "http://localhost:5000";
+
+    // 3. Buat koneksi dengan membawa token untuk autentikasi
+    const s = io(socketUrl, {
       transports: ["websocket"],
-      withCredentials: true,
+      query: { token },
     });
+
     setSocket(s);
+
+    // 4. Beri tahu backend sesi mana yang ingin kita pantau
+    // Kita asumsikan ID sesi aktif disimpan di localStorage saat pengguna bergabung
+    const activeSessionId = localStorage.getItem("current_session_id");
+    if (activeSessionId) {
+      s.on("connect", () => {
+        console.log(
+          `Bergabung ke room visualisasi untuk sesi: ${activeSessionId}`
+        );
+        s.emit("join_session", { session_id: activeSessionId });
+      });
+    } else {
+      console.warn("Tidak ada sesi aktif yang ditemukan untuk visualisasi.");
+    }
+
     const handleEmotionUpdate = (payload: any) => {
       if (!payload || !payload.emotions) return;
       const timestamp = Date.now();
@@ -32,73 +60,74 @@ export default function TeamVisualizationPage() {
       );
     };
     s.on("emotion_update", handleEmotionUpdate);
+
     return () => {
       s.off("emotion_update", handleEmotionUpdate);
       s.disconnect();
     };
-  }, []);
+  }, []); // Dependency array kosong sudah benar, karena ini hanya dijalankan sekali saat komponen dimuat.
 
   // --- DUMMY DATA FALLBACK FOR TIMELINE ---
-  const dummyTimelineData = [
-    {
-      date: new Date(Date.now() - 3600 * 1000 * 4).toISOString(),
-      happy: 0.4,
-      neutral: 0.3,
-      stressed: 0.1,
-      sad: 0.1,
-      angry: 0.1,
-    },
-    {
-      date: new Date(Date.now() - 3600 * 1000 * 3).toISOString(),
-      happy: 0.5,
-      neutral: 0.2,
-      stressed: 0.1,
-      sad: 0.1,
-      angry: 0.1,
-    },
-    {
-      date: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
-      happy: 0.3,
-      neutral: 0.4,
-      stressed: 0.15,
-      sad: 0.1,
-      angry: 0.05,
-    },
-    {
-      date: new Date(Date.now() - 3600 * 1000 * 1).toISOString(),
-      happy: 0.6,
-      neutral: 0.2,
-      stressed: 0.05,
-      sad: 0.05,
-      angry: 0.1,
-    },
-    {
-      date: new Date().toISOString(),
-      happy: 0.7,
-      neutral: 0.1,
-      stressed: 0.05,
-      sad: 0.05,
-      angry: 0.1,
-    },
-  ];
+  // const dummyTimelineData = [
+  //   {
+  //     date: new Date(Date.now() - 3600 * 1000 * 4).toISOString(),
+  //     happy: 0.4,
+  //     neutral: 0.3,
+  //     stressed: 0.1,
+  //     sad: 0.1,
+  //     angry: 0.1,
+  //   },
+  //   {
+  //     date: new Date(Date.now() - 3600 * 1000 * 3).toISOString(),
+  //     happy: 0.5,
+  //     neutral: 0.2,
+  //     stressed: 0.1,
+  //     sad: 0.1,
+  //     angry: 0.1,
+  //   },
+  //   {
+  //     date: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
+  //     happy: 0.3,
+  //     neutral: 0.4,
+  //     stressed: 0.15,
+  //     sad: 0.1,
+  //     angry: 0.05,
+  //   },
+  //   {
+  //     date: new Date(Date.now() - 3600 * 1000 * 1).toISOString(),
+  //     happy: 0.6,
+  //     neutral: 0.2,
+  //     stressed: 0.05,
+  //     sad: 0.05,
+  //     angry: 0.1,
+  //   },
+  //   {
+  //     date: new Date().toISOString(),
+  //     happy: 0.7,
+  //     neutral: 0.1,
+  //     stressed: 0.05,
+  //     sad: 0.05,
+  //     angry: 0.1,
+  //   },
+  // ];
 
-  // Format data for TeamTimeline (timelineData)
-  const timelineData =
-    realtimeEmotionTrend.length > 0
-      ? realtimeEmotionTrend.map((e) => ({
-          date: new Date(e.timestamp).toISOString(),
-          happy: e.happy ?? 0,
-          neutral: e.neutral ?? 0,
-          stressed:
-            typeof e.stressed === "number"
-              ? e.stressed
-              : ((e.fearful ?? 0) + (e.disgusted ?? 0)) / 2,
-          sad: e.sad ?? 0,
-          angry: e.angry ?? 0,
-        }))
-      : dummyTimelineData;
+  // // Format data for TeamTimeline (timelineData)
+  // const timelineData =
+  //   realtimeEmotionTrend.length > 0
+  //     ? realtimeEmotionTrend.map((e) => ({
+  //         date: new Date(e.timestamp).toISOString(),
+  //         happy: e.happy ?? 0,
+  //         neutral: e.neutral ?? 0,
+  //         stressed:
+  //           typeof e.stressed === "number"
+  //             ? e.stressed
+  //             : ((e.fearful ?? 0) + (e.disgusted ?? 0)) / 2,
+  //         sad: e.sad ?? 0,
+  //         angry: e.angry ?? 0,
+  //       }))
+  //     : dummyTimelineData;
 
-  console.log("timelineData", timelineData);
+  // console.log("timelineData", timelineData);
 
   return (
     <div className="space-y-6">
@@ -139,7 +168,7 @@ export default function TeamVisualizationPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <TeamTimeline data={timelineData} />
+              {/* <TeamTimeline data={timelineData} /> */}
             </CardContent>
           </Card>
         </TabsContent>
